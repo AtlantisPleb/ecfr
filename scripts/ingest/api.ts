@@ -104,49 +104,21 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
   }
 }
 
-async function fetchTitlesPage(page: number = 1): Promise<any> {
-  return await fetchWithRetry(`/api/versioner/v1/titles.json?page=${page}`)
-}
-
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
-    let allTitles: ECFRTitle[] = []
-    let currentPage = 1
-    let hasMorePages = true
-
-    while (hasMorePages) {
-      console.log(`Fetching titles page ${currentPage}...`)
-      const data = await fetchTitlesPage(currentPage)
-      
-      if (!data.titles) {
-        console.error('No titles array in response:', data)
-        break
-      }
-
-      allTitles = allTitles.concat(data.titles)
-
-      // Check if there are more pages
-      // This logic might need to be adjusted based on the actual API response
-      if (data.meta?.next_page) {
-        currentPage = data.meta.next_page
-      } else if (data.meta?.has_more) {
-        currentPage++
-      } else {
-        hasMorePages = false
-      }
-
-      // If we've fetched all titles (1-50), stop
-      const highestTitleNumber = Math.max(...allTitles.map(t => t.number))
-      if (highestTitleNumber >= 50) {
-        hasMorePages = false
-      }
+    const data = await fetchWithRetry('/api/versioner/v1/titles.json')
+    
+    if (!data.titles) {
+      console.error('No titles array in response:', data)
+      return []
     }
 
     // Sort titles by number to ensure consistent order
-    allTitles.sort((a, b) => a.number - b.number)
+    const titles = [...data.titles]
+    titles.sort((a, b) => a.number - b.number)
     
-    return allTitles
+    return titles
   } catch (error) {
     console.error('Error fetching titles:', error)
     throw error
