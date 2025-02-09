@@ -5,6 +5,11 @@ import { ECFRAgency, ECFRTitle } from './types.js'
 
 const prisma = new PrismaClient()
 
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled promise rejection:', error)
+  process.exit(1)
+})
+
 async function processTitle(
   title: ECFRTitle,
   agencyId: string,
@@ -170,6 +175,11 @@ async function ingestECFR() {
       fetchTitles()
     ])
 
+    if (!agencies?.length || !titles?.length) {
+      console.error('Failed to fetch agencies or titles:', { agencies, titles })
+      throw new Error('Invalid API response')
+    }
+
     console.log(`Found ${agencies.length} agencies and ${titles.length} titles`)
 
     let processedAgencies = checkpoint?.progress.agenciesProcessed || 0
@@ -223,4 +233,7 @@ async function ingestECFR() {
 }
 
 // Run the script
-ingestECFR()
+ingestECFR().catch(error => {
+  console.error('Fatal error:', error)
+  process.exit(1)
+})
