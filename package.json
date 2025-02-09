@@ -14,7 +14,9 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
+    "db:clean": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/clean.ts",
     "ingest": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/ingest/index.ts",
+    "ingest:clean": "pnpm run db:clean && pnpm run ingest",
     "studio": "prisma studio",
     "t": "tsc --noEmit"
   },
