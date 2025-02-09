@@ -71,6 +71,25 @@ export async function main() {
     const totalAgencies = agencies.length
     const totalTitles = titles.length
 
+    // First, ensure all titles exist
+    for (const title of titles) {
+      await prisma.title.upsert({
+        where: { id: `title-${title.number}` },
+        create: {
+          id: `title-${title.number}`,
+          number: title.number,
+          name: title.name,
+          type: 'CFR'
+        },
+        update: {
+          name: title.name
+        }
+      }).catch(error => {
+        console.error('Database error creating/updating title:', error)
+        throw error
+      })
+    }
+
     // Process agencies
     for (const agency of agencies) {
       try {
@@ -148,28 +167,22 @@ export async function main() {
 
               const { content, wordCount } = result
 
-              // Create or update title
-              const dbTitle = await prisma.title.upsert({
-                where: { id: `title-${title.number}` },
-                create: {
-                  id: `title-${title.number}`,
-                  number: title.number,
-                  name: title.name,
-                  type: 'CFR',
-                  agencyId: dbAgency.id
-                },
-                update: {
-                  name: title.name,
-                  agencyId: dbAgency.id
+              // Connect agency to title (many-to-many)
+              await prisma.agency.update({
+                where: { id: dbAgency.id },
+                data: {
+                  titles: {
+                    connect: { id: `title-${title.number}` }
+                  }
                 }
               }).catch(error => {
-                console.error('Database error creating/updating title:', error)
+                console.error('Database error connecting agency to title:', error)
                 throw error
               })
 
               // Check for changes
               const latestVersion = await prisma.version.findFirst({
-                where: { titleId: dbTitle.id },
+                where: { titleId: `title-${title.number}` },
                 orderBy: { date: 'desc' }
               }).catch(error => {
                 console.error('Database error fetching latest version:', error)
@@ -184,7 +197,7 @@ export async function main() {
                 // Create new version with metrics
                 const newVersion = await prisma.version.create({
                   data: {
-                    titleId: dbTitle.id,
+                    titleId: `title-${title.number}`,
                     content,
                     wordCount,
                     date: new Date(),
