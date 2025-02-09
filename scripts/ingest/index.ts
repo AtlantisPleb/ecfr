@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import { fetchAgencies, fetchTitles, fetchTitleContent } from './api.js'
 import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint.js'
-import { ECFRAgency, ECFRTitle } from './types.js'
+import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
+import { calculateTextMetrics, extractReferences, compareVersions } from './analysis.js'
 
 const prisma = new PrismaClient({
   log: ['error']
@@ -158,7 +159,12 @@ export async function main() {
               })
 
               if (!latestVersion || latestVersion.content !== content) {
-                await prisma.version.create({
+                // Calculate metrics
+                const textMetrics = calculateTextMetrics(content)
+                const references = extractReferences(content, dbAgency.id)
+
+                // Create new version with metrics
+                const newVersion = await prisma.version.create({
                   data: {
                     titleId: dbTitle.id,
                     content,
@@ -170,12 +176,48 @@ export async function main() {
                         section: 'full',
                         description: latestVersion ? 'Content updated' : 'Initial version'
                       }
+                    },
+                    textMetrics: {
+                      create: textMetrics
                     }
                   }
                 }).catch(error => {
                   console.error('Database error creating version:', error)
                   throw error
                 })
+
+                // Create references
+                for (const ref of references) {
+                  await prisma.reference.create({
+                    data: {
+                      sourceId: newVersion.id,
+                      targetId: ref.targetId,
+                      context: ref.context,
+                      type: ref.type
+                    }
+                  }).catch(error => {
+                    console.error('Database error creating reference:', error)
+                    // Don't throw here, continue processing
+                  })
+                }
+
+                // Calculate activity metrics if this is an update
+                if (latestVersion) {
+                  const diff = compareVersions(latestVersion.content, content)
+                  await prisma.activityMetrics.create({
+                    data: {
+                      agencyId: dbAgency.id,
+                      date: new Date(),
+                      newContent: diff.wordCounts.added,
+                      modifiedContent: diff.wordCounts.modified,
+                      deletedContent: diff.wordCounts.deleted,
+                      totalWords: wordCount
+                    }
+                  }).catch(error => {
+                    console.error('Database error creating activity metrics:', error)
+                    // Don't throw here, continue processing
+                  })
+                }
 
                 await prisma.wordCount.create({
                   data: {
