@@ -49,10 +49,16 @@ export async function saveCheckpoint(data: Partial<CheckpointData>): Promise<voi
 }
 
 export async function shouldSkipAgency(
-  agencyId: string, 
+  agencyId: string | undefined, 
   checkpoint: CheckpointData | null,
   prisma: PrismaClient
 ): Promise<boolean> {
+  // Validate agency ID
+  if (!agencyId) {
+    console.warn('Invalid agency ID, not skipping')
+    return false
+  }
+
   // First check if we have any data at all
   const count = await prisma.agency.count()
   if (count === 0) {
@@ -85,4 +91,10 @@ export async function shouldSkipTitle(
 ): Promise<boolean> {
   if (!checkpoint?.lastTitleNumber) return false
   return titleNumber <= checkpoint.lastTitleNumber
+}
+
+export function formatProgress(current: number, total: number): string {
+  const percentage = (current / total * 100).toFixed(2)
+  const bar = '█'.repeat(Math.floor(current / total * 20)).padEnd(20, '░')
+  return `${bar} ${percentage}% (${current}/${total})`
 }
