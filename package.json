@@ -14,7 +14,7 @@
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
     "db:clean": "tsx scripts/clean.ts",
-    "ingest": "NODE_OPTIONS='--experimental-specifier-resolution=node' tsx scripts/ingest/run.ts",
+    "ingest": "tsx scripts/ingest/run.ts",
     "ingest:clean": "pnpm run db:clean && pnpm run ingest",
     "studio": "prisma studio",
     "t": "tsc --noEmit"
