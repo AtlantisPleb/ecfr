@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { ECFRTitle, ProcessedContent, TitleProcessingResult } from '../types'
 import { processVersion } from './versionProcessor'
 import { processHierarchy } from './hierarchyProcessor'
-import { processMetrics } from './metricsProcessor'
+import { processMetrics, processActivityMetrics } from './metricsProcessor'
 
 const prisma = new PrismaClient()
 
@@ -20,10 +20,20 @@ export async function processTitle(
       references: content.references.length
     })
 
-    // Check if title exists
+    // Check if title exists and get its latest version
     let titleRecord = await prisma.title.findUnique({
-      where: { number: title.number }
+      where: { number: title.number },
+      include: {
+        versions: {
+          orderBy: {
+            amendment_date: 'desc'
+          },
+          take: 1
+        }
+      }
     })
+
+    const oldWordCount = titleRecord?.versions[0]?.wordCount ?? 0
 
     // Create or update title
     if (!titleRecord) {
@@ -68,9 +78,9 @@ export async function processTitle(
       source: 'eCFR API',
       fr_citations: [],
       changes: [{
-        type: 'ADD',
+        type: oldWordCount ? 'MODIFY' : 'ADD',
         section: 'full',
-        description: 'Initial version'
+        description: oldWordCount ? 'Content updated' : 'Initial version'
       }]
     })
 
@@ -105,6 +115,13 @@ export async function processTitle(
       }
     })
     console.log('Created word count record')
+
+    // Process activity metrics if this is an update
+    if (oldWordCount > 0) {
+      console.log('\nProcessing activity metrics...')
+      await processActivityMetrics(agencyId, oldWordCount, content.wordCount)
+      console.log('Activity metrics processed')
+    }
 
     return {
       success: true,
