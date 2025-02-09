@@ -1,4 +1,4 @@
-import { Agency, Title, Version, Change, WordCount } from '@prisma/client'
+import { Agency, Title, Version, Change, WordCount, TextMetrics, Reference, ActivityMetrics } from '@prisma/client'
 
 export interface CheckpointData {
   lastAgencyId: string | null
@@ -37,4 +37,52 @@ export interface ECFRTitle {
 export interface ProcessedContent {
   content: string
   wordCount: number
+  textMetrics: TextMetricsData
+  references: ReferenceData[]
+}
+
+// New interfaces for analysis metrics
+
+export interface TextMetricsData {
+  wordCount: number
+  uniqueWords: number
+  avgWordLength: number
+  avgSentenceLen: number
+}
+
+export interface ReferenceData {
+  targetId: string
+  context: string
+  type: 'INTERNAL' | 'EXTERNAL'
+}
+
+export interface ActivityMetricsData {
+  newContent: number
+  modifiedContent: number
+  deletedContent: number
+  totalWords: number
+}
+
+// Helper types for content analysis
+
+export interface WordStats {
+  total: number
+  unique: number
+  avgLength: number
+}
+
+export interface SentenceStats {
+  count: number
+  avgLength: number
+}
+
+export interface ContentDiff {
+  added: string[]
+  modified: string[]
+  deleted: string[]
+  wordCounts: {
+    added: number
+    modified: number
+    deleted: number
+  }
 }
