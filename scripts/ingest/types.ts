@@ -214,3 +214,14 @@ export interface CheckpointData {
     titlesProcessed: number;
   };
 }
+
+// Ingestion Options Types
+
+export type IngestionDepth = 'titles' | 'chapters' | 'parts' | 'full';
+
+export interface IngestionOptions {
+  skipHierarchy?: boolean;
+  depth?: IngestionDepth;
+  agencySlug?: string;
+  batchSize?: number;
+}
