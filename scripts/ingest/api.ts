@@ -116,53 +116,89 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 }
 
 function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
+  console.log('\nParsing structure from API response...')
   const chapters: ECFRChapter[] = []
 
-  if (contentObj.structure?.chapters) {
-    for (const chapterData of contentObj.structure.chapters) {
-      const chapter: ECFRChapter = {
-        number: parseInt(chapterData.number),
-        name: chapterData.name,
-        parts: []
-      }
-
-      if (chapterData.parts) {
-        for (const partData of chapterData.parts) {
-          const part: ECFRPart = {
-            number: parseInt(partData.number),
-            name: partData.name,
-            subparts: []
-          }
-
-          if (partData.subparts) {
-            for (const subpartData of partData.subparts) {
-              const subpart: ECFRSubpart = {
-                name: subpartData.name,
-                sections: []
-              }
-
-              if (subpartData.sections) {
-                for (const sectionData of subpartData.sections) {
-                  const section: ECFRSection = {
-                    number: sectionData.number,
-                    name: sectionData.name,
-                    content: sectionData.content || ''
-                  }
-                  subpart.sections.push(section)
-                }
-              }
-
-              part.subparts.push(subpart)
-            }
-          }
-
-          chapter.parts.push(part)
-        }
-      }
-
-      chapters.push(chapter)
-    }
+  if (!contentObj.structure) {
+    console.log('No structure found in API response')
+    console.log('Response keys:', Object.keys(contentObj))
+    return { chapters }
   }
+
+  if (!contentObj.structure.chapters) {
+    console.log('No chapters found in structure')
+    console.log('Structure keys:', Object.keys(contentObj.structure))
+    return { chapters }
+  }
+
+  console.log(`Found ${contentObj.structure.chapters.length} chapters in API response`)
+
+  for (const chapterData of contentObj.structure.chapters) {
+    console.log(`\nParsing Chapter ${chapterData.number}: ${chapterData.name}`)
+    const chapter: ECFRChapter = {
+      number: parseInt(chapterData.number),
+      name: chapterData.name,
+      parts: []
+    }
+
+    if (chapterData.parts) {
+      console.log(`Found ${chapterData.parts.length} parts in chapter ${chapter.number}`)
+      for (const partData of chapterData.parts) {
+        console.log(`Parsing Part ${partData.number}: ${partData.name}`)
+        const part: ECFRPart = {
+          number: parseInt(partData.number),
+          name: partData.name,
+          subparts: []
+        }
+
+        if (partData.subparts) {
+          console.log(`Found ${partData.subparts.length} subparts in part ${part.number}`)
+          for (const subpartData of partData.subparts) {
+            console.log(`Parsing Subpart: ${subpartData.name}`)
+            const subpart: ECFRSubpart = {
+              name: subpartData.name,
+              sections: []
+            }
+
+            if (subpartData.sections) {
+              console.log(`Found ${subpartData.sections.length} sections in subpart ${subpart.name}`)
+              for (const sectionData of subpartData.sections) {
+                console.log(`Parsing Section ${sectionData.number}: ${sectionData.name}`)
+                const section: ECFRSection = {
+                  number: sectionData.number,
+                  name: sectionData.name,
+                  content: sectionData.content || ''
+                }
+                subpart.sections.push(section)
+              }
+            } else {
+              console.log('No sections found in subpart')
+            }
+
+            part.subparts.push(subpart)
+          }
+        } else {
+          console.log('No subparts found in part')
+        }
+
+        chapter.parts.push(part)
+      }
+    } else {
+      console.log('No parts found in chapter')
+    }
+
+    chapters.push(chapter)
+  }
+
+  console.log('\nStructure parsing complete')
+  console.log('Summary:')
+  console.log(`- ${chapters.length} chapters`)
+  console.log(`- ${chapters.reduce((sum, ch) => sum + ch.parts.length, 0)} parts`)
+  console.log(`- ${chapters.reduce((sum, ch) => 
+    sum + ch.parts.reduce((psum, p) => psum + p.subparts.length, 0), 0)} subparts`)
+  console.log(`- ${chapters.reduce((sum, ch) => 
+    sum + ch.parts.reduce((psum, p) => 
+      psum + p.subparts.reduce((ssum, s) => ssum + s.sections.length, 0), 0), 0)} sections`)
 
   return { chapters }
 }
@@ -170,6 +206,7 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
 export async function fetchTitleContent(titleNumber: number, date: string = 'latest'): Promise<ProcessedContent | null> {
   try {
     // First get the versions info for this title
+    console.log(`\nFetching versions data for Title ${titleNumber}...`)
     const versionsData = await fetchWithRetry(`/api/versioner/v1/versions/title-${titleNumber}.json`)
     if (!versionsData || !versionsData.content_versions) {
       console.log(`No versions data found for title ${titleNumber}, skipping`)
@@ -182,8 +219,10 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
       console.log(`No valid version date found for title ${titleNumber}, skipping`)
       return null
     }
+    console.log(`Latest amendment date: ${latestDate}`)
 
     // Get the content using the structure endpoint
+    console.log(`Fetching structure data for Title ${titleNumber}...`)
     const url = `/api/versioner/v1/structure/${latestDate}/title-${titleNumber}.json`
     
     let retryCount = 0
@@ -221,6 +260,8 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
         const content = await response.text()
         const contentObj = JSON.parse(content)
         
+        console.log('Parsing content...')
+        
         // Extract all text content for metrics
         const allText = JSON.stringify(contentObj, null, 2)
         const wordCount = allText
@@ -231,11 +272,16 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
           .split(/\s+/)
           .length
 
+        console.log(`Word count: ${wordCount}`)
+
         // Calculate metrics and extract references
+        console.log('Calculating metrics...')
         const textMetrics = calculateTextMetrics(allText)
+        console.log('Extracting references...')
         const references = extractReferences(allText, titleNumber.toString())
 
         // Parse hierarchical structure
+        console.log('Parsing structure...')
         const structure = parseStructure(contentObj)
 
         return {
