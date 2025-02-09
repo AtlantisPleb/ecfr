@@ -3,13 +3,29 @@ import { fetchAgencies, fetchTitles, fetchTitleContent } from './api.js'
 import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle, formatProgress } from './checkpoint.js'
 import { ECFRAgency, ECFRTitle } from './types.js'
 
-const prisma = new PrismaClient()
-
-// Global error handler
+// Global error handler for unhandled rejections
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise)
+  console.error('=== Unhandled Rejection ===')
+  console.error('Promise:', promise)
   console.error('Reason:', reason)
+  if (reason instanceof Error) {
+    console.error('Stack:', reason.stack)
+  } else {
+    console.error('Full reason object:', JSON.stringify(reason, null, 2))
+  }
   process.exit(1)
+})
+
+// Global error handler for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('=== Uncaught Exception ===')
+  console.error('Error:', error)
+  console.error('Stack:', error.stack)
+  process.exit(1)
+})
+
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error']
 })
 
 async function main() {
@@ -36,23 +52,19 @@ async function main() {
     }
 
     // Fetch initial data
-    let agencies, titles
+    let agencies: ECFRAgency[] = []
+    let titles: ECFRTitle[] = []
+
     try {
-      console.log('Fetching agencies and titles...')
-      const results = await Promise.all([
-        fetchAgencies().catch(error => {
-          console.error('Failed to fetch agencies:', error)
-          throw error
-        }),
-        fetchTitles().catch(error => {
-          console.error('Failed to fetch titles:', error)
-          throw error
-        })
-      ])
-      agencies = results[0]
-      titles = results[1]
+      console.log('Fetching agencies...')
+      agencies = await fetchAgencies()
+      console.log('Fetching titles...')
+      titles = await fetchTitles()
     } catch (error) {
       console.error('Failed to fetch initial data:', error)
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack)
+      }
       throw error
     }
 
@@ -73,7 +85,7 @@ async function main() {
     for (const agency of agencies) {
       try {
         if (!agency.slug) {
-          console.warn('Agency missing slug:', agency)
+          console.warn('Agency missing slug:', JSON.stringify(agency, null, 2))
           continue
         }
 
@@ -96,6 +108,9 @@ async function main() {
           update: {
             name: agency.display_name || agency.name
           }
+        }).catch(error => {
+          console.error('Database error creating/updating agency:', error)
+          throw error
         })
 
         // Process titles
@@ -138,12 +153,18 @@ async function main() {
                   name: title.name,
                   agencyId: dbAgency.id
                 }
+              }).catch(error => {
+                console.error('Database error creating/updating title:', error)
+                throw error
               })
 
               // Check for changes
               const latestVersion = await prisma.version.findFirst({
                 where: { titleId: dbTitle.id },
                 orderBy: { date: 'desc' }
+              }).catch(error => {
+                console.error('Database error fetching latest version:', error)
+                throw error
               })
 
               if (!latestVersion || latestVersion.content !== content) {
@@ -161,6 +182,9 @@ async function main() {
                       }
                     }
                   }
+                }).catch(error => {
+                  console.error('Database error creating version:', error)
+                  throw error
                 })
 
                 await prisma.wordCount.create({
@@ -169,6 +193,9 @@ async function main() {
                     count: wordCount,
                     date: new Date()
                   }
+                }).catch(error => {
+                  console.error('Database error creating word count:', error)
+                  throw error
                 })
 
                 console.log(`Created new version for title ${title.number} with ${wordCount} words`)
@@ -186,6 +213,9 @@ async function main() {
                   agenciesProcessed: processedAgencies,
                   titlesProcessed: processedTitles
                 }
+              }).catch(error => {
+                console.error('Error saving checkpoint:', error)
+                throw error
               })
             } catch (error) {
               console.error(`Error processing title ${ref.title}:`, error)
@@ -204,6 +234,9 @@ async function main() {
             agenciesProcessed: processedAgencies,
             titlesProcessed: processedTitles
           }
+        }).catch(error => {
+          console.error('Error saving agency checkpoint:', error)
+          throw error
         })
       } catch (error) {
         console.error(`Error processing agency ${agency.name}:`, error)
@@ -215,6 +248,9 @@ async function main() {
     console.log(`Processed ${processedAgencies} agencies and ${processedTitles} titles`)
   } catch (error) {
     console.error('Fatal error during ingestion:', error)
+    if (error instanceof Error) {
+      console.error('Error stack:', error.stack)
+    }
     throw error
   } finally {
     await prisma.$disconnect()
@@ -223,6 +259,11 @@ async function main() {
 
 // Run with proper error handling
 main().catch(error => {
-  console.error('Script failed:', error)
+  console.error('Script failed with error:', error)
+  if (error instanceof Error) {
+    console.error('Error stack:', error.stack)
+  } else {
+    console.error('Full error object:', JSON.stringify(error, null, 2))
+  }
   process.exit(1)
 })
