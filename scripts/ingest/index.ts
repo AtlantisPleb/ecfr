@@ -10,12 +10,18 @@ async function processTitle(
   agencyId: string,
   totalTitles: number,
   processedTitles: number
-): Promise<void> {
+): Promise<boolean> {
   console.log(`\nProcessing title ${title.number}: ${title.name}`)
   console.log(`Progress: ${formatProgress(processedTitles + 1, totalTitles)}`)
   
   try {
-    const { content, wordCount } = await fetchTitleContent(title.number)
+    const result = await fetchTitleContent(title.number)
+    if (!result) {
+      console.log(`Skipping title ${title.number} - content not available`)
+      return false
+    }
+    
+    const { content, wordCount } = result
     
     // Create or update title
     const dbTitle = await prisma.title.upsert({
@@ -73,6 +79,7 @@ async function processTitle(
     } else {
       console.log(`No changes for title ${title.number}`)
     }
+    return true
   } catch (error) {
     console.error(`Error processing title ${title.number}:`, error)
     throw error
@@ -108,7 +115,7 @@ async function processAgency(
     for (const ref of agency.cfr_references) {
       const title = titles.find(t => t.number === ref.title)
       if (!title) {
-        console.log(`Title ${ref.title} not found, skipping`)
+        console.log(`Title ${ref.title} not found in titles list, skipping`)
         continue
       }
 
@@ -118,8 +125,10 @@ async function processAgency(
         continue
       }
 
-      await processTitle(title, dbAgency.id, totalTitles, processedTitles)
-      processedTitles++
+      const success = await processTitle(title, dbAgency.id, totalTitles, processedTitles)
+      if (success) {
+        processedTitles++
+      }
       
       await saveCheckpoint({
         lastAgencyId: agency.slug,
