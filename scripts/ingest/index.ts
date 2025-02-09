@@ -192,7 +192,6 @@ export async function main() {
               if (!latestVersion || latestVersion.content !== content) {
                 // Calculate metrics
                 const textMetrics = calculateTextMetrics(content)
-                const references = extractReferences(content, dbAgency.id)
 
                 // Create new version with metrics
                 const newVersion = await prisma.version.create({
@@ -217,12 +216,13 @@ export async function main() {
                   throw error
                 })
 
-                // Create references
+                // Extract and create references using the new version's ID
+                const references = extractReferences(content, newVersion.id)
                 for (const ref of references) {
                   await prisma.reference.create({
                     data: {
                       sourceId: newVersion.id,
-                      targetId: ref.targetId,
+                      targetId: newVersion.id, // For now, reference itself
                       context: ref.context,
                       type: ref.type
                     }
