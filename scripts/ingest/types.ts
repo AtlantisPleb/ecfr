@@ -10,15 +10,20 @@ export interface CheckpointData {
   }
 }
 
+export interface ECFRAgencyReference {
+  title: number
+  chapter: string
+  part?: string
+}
+
 export interface ECFRAgency {
-  id: string
   name: string
-  url: string
-  chapters: Array<{
-    title: number
-    chapter: number
-    name: string
-  }>
+  short_name: string | null
+  display_name: string
+  sortable_name: string
+  slug: string
+  children: ECFRAgency[]
+  cfr_references: ECFRAgencyReference[]
 }
 
 export interface ECFRTitle {
