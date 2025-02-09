@@ -26,6 +26,10 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
       console.log(`Fetching ${url}`)
       const response = await fetch(url)
       
+      // Log response details
+      console.log(`Response status: ${response.status}`)
+      console.log(`Response headers:`, Object.fromEntries(response.headers.entries()))
+      
       if (!response.ok) {
         if (response.status === 404) {
           throw new APIError('Not found', 404, false)
@@ -48,12 +52,19 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
       }
       
       const contentType = response.headers.get('content-type')
+      console.log(`Content-Type:`, contentType)
+      
       if (contentType?.includes('application/json')) {
-        return await response.json()
+        const json = await response.json()
+        console.log('Response JSON:', JSON.stringify(json, null, 2))
+        return json
       } else {
         const text = await response.text()
+        console.log('Response Text (first 500 chars):', text.slice(0, 500))
         try {
-          return JSON.parse(text)
+          const json = JSON.parse(text)
+          console.log('Parsed JSON:', JSON.stringify(json, null, 2))
+          return json
         } catch (e) {
           if (contentType?.includes('application/xml') || contentType?.includes('text/xml')) {
             return text // Return raw XML content
@@ -98,9 +109,14 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
+    console.log(`URL: ${VERSIONER_BASE_URL}/titles.json`)
     const data = await fetchWithRetry(`${VERSIONER_BASE_URL}/titles.json`)
     console.log('Raw titles response:', JSON.stringify(data, null, 2))
-    return data.titles || []
+    if (!data.titles) {
+      console.error('No titles array in response:', data)
+      return []
+    }
+    return data.titles
   } catch (error) {
     console.error('Error fetching titles:', error)
     throw error
@@ -110,6 +126,7 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
   const url = `${VERSIONER_BASE_URL}/full/${date}/title-${titleNumber}.xml`
   console.log(`Fetching content for Title ${titleNumber}...`)
+  console.log(`URL: ${url}`)
   
   try {
     let retryCount = 0
@@ -119,6 +136,9 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
       try {
         await rateLimiter.waitForNext()
         const response = await fetch(url)
+        
+        console.log(`Title ${titleNumber} response status:`, response.status)
+        console.log(`Title ${titleNumber} response headers:`, Object.fromEntries(response.headers.entries()))
         
         if (!response.ok) {
           if (response.status === 404) {
@@ -138,11 +158,14 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
           }
           
           const text = await response.text()
-          console.error(`Error response body:`, text)
+          console.error(`Error response body for title ${titleNumber}:`, text)
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
         const content = await response.text()
+        console.log(`Title ${titleNumber} content length:`, content.length)
+        console.log(`Title ${titleNumber} content preview:`, content.slice(0, 200))
+        
         const wordCount = content
           .replace(/<[^>]*>/g, ' ') // Remove XML tags
           .replace(/\s+/g, ' ') // Normalize whitespace
