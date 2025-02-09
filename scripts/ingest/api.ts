@@ -1,5 +1,5 @@
-import { ECFRAgency, ECFRTitle, ProcessedContent } from './types'
-import { RateLimiter } from './rateLimiter'
+import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
+import { RateLimiter } from './rateLimiter.js'
 
 const BASE_URL = 'https://www.ecfr.gov/api'
 const rateLimiter = new RateLimiter()
