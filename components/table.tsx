@@ -1,8 +1,12 @@
 import prisma from '@/lib/prisma'
 import { timeAgo } from '@/lib/utils'
-import Image from 'next/image'
 import RefreshButton from './refresh-button'
-import { Agency } from '@prisma/client'
+import { Agency, Title, WordCount } from '@prisma/client'
+
+type AgencyWithRelations = Agency & {
+  titles: Title[];
+  wordCounts: WordCount[];
+}
 
 export default async function Table() {
   const agencies = await prisma.agency.findMany({
@@ -15,7 +19,7 @@ export default async function Table() {
         take: 1
       }
     }
-  })
+  }) as AgencyWithRelations[]
 
   return (
     <div className="bg-white/30 p-12 shadow-xl ring-1 ring-gray-900/5 rounded-lg backdrop-blur-lg max-w-xl mx-auto w-full">
@@ -29,7 +33,7 @@ export default async function Table() {
         <RefreshButton />
       </div>
       <div className="divide-y divide-gray-900/5">
-        {agencies.map((agency: Agency) => (
+        {agencies.map((agency) => (
           <div
             key={agency.id}
             className="flex items-center justify-between py-3"
