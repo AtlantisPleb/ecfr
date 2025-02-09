@@ -66,23 +66,19 @@ export async function shouldSkipAgency(
     return false
   }
 
-  // If we have a checkpoint, use it
+  // If we have a checkpoint, check if we've already processed this agency
   if (checkpoint?.lastAgencyId) {
-    const wasProcessed = await prisma.agency.findUnique({
-      where: { id: checkpoint.lastAgencyId }
+    // Get all agencies up to the checkpoint
+    const processedAgencies = await prisma.agency.findMany({
+      select: { id: true },
+      take: checkpoint.progress.agenciesProcessed
     })
-    if (!wasProcessed) {
-      console.log('Last processed agency not found, starting fresh')
-      return false
-    }
-    return agencyId !== checkpoint.lastAgencyId
+    
+    // Check if this agency is in the processed list
+    return processedAgencies.some(a => a.id === agencyId)
   }
 
-  // No checkpoint but we have data - check if this agency exists
-  const exists = await prisma.agency.findUnique({
-    where: { id: agencyId }
-  })
-  return !!exists
+  return false
 }
 
 export async function shouldSkipTitle(
