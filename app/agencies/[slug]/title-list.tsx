@@ -8,15 +8,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Title, WordCount } from '@prisma/client'
+import { Title, Version } from '@prisma/client'
 import { timeAgo } from '@/lib/utils'
 
-type TitleWithWordCount = Title & {
-  wordCounts: WordCount[];
+type TitleWithVersion = Title & {
+  versions: Pick<Version, 'wordCount' | 'date'>[]
 }
 
 interface TitleListProps {
-  titles: TitleWithWordCount[]
+  titles: TitleWithVersion[]
 }
 
 export function TitleList({ titles }: TitleListProps) {
@@ -32,20 +32,25 @@ export function TitleList({ titles }: TitleListProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {titles.map((title) => (
-            <TableRow key={title.id}>
-              <TableCell>{title.number}</TableCell>
-              <TableCell>{title.name}</TableCell>
-              <TableCell>
-                {title.wordCounts[0]
-                  ? title.wordCounts[0].count.toLocaleString()
-                  : "N/A"}
-              </TableCell>
-              <TableCell>
-                {title.updatedAt ? timeAgo(title.updatedAt) : "Never"}
-              </TableCell>
-            </TableRow>
-          ))}
+          {titles.map((title) => {
+            const latestVersion = title.versions[0]
+            return (
+              <TableRow key={title.id}>
+                <TableCell>{title.number}</TableCell>
+                <TableCell>{title.name}</TableCell>
+                <TableCell>
+                  {latestVersion
+                    ? latestVersion.wordCount.toLocaleString()
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {latestVersion
+                    ? timeAgo(latestVersion.date)
+                    : "Never"}
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>
