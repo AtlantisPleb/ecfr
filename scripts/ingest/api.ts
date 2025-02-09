@@ -135,21 +135,15 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'latest'): Promise<ProcessedContent | null> {
   try {
-    // First get the versions info for this title
-    const versionsData = await fetchWithRetry(`/api/versioner/v1/versions/title-${titleNumber}.json`)
-    if (!versionsData || !Array.isArray(versionsData)) {
-      console.log(`No versions data found for title ${titleNumber}, skipping`)
+    // First get the title metadata to get the latest date
+    const titleData = await fetchWithRetry(`/api/versioner/v1/titles.json`)
+    const titleInfo = titleData.titles?.find((t: any) => t.number === titleNumber)
+    if (!titleInfo || !titleInfo.latest_amended_on) {
+      console.log(`No latest version date found for title ${titleNumber}, skipping`)
       return null
     }
 
-    // Get the latest version date
-    const latestVersion = versionsData[0] // Assuming versions are sorted newest first
-    if (!latestVersion || !latestVersion.date) {
-      console.log(`No valid version date found for title ${titleNumber}, skipping`)
-      return null
-    }
-
-    const versionDate = latestVersion.date.split('T')[0] // Get just the date part
+    const versionDate = titleInfo.latest_amended_on
     const url = `/api/versioner/v1/full/${versionDate}/title-${titleNumber}.xml`
     console.log(`Fetching content for Title ${titleNumber} version ${versionDate}...`)
     console.log(`URL: ${url}`)
