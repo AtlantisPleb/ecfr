@@ -4,6 +4,7 @@
   "license": "MIT",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "prisma generate && next dev",
     "build": "prisma generate && next build",
@@ -13,9 +14,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
-    "studio": "prisma studio",
-    "t": "tsc --noEmit",
-    "ingest": "ts-node scripts/ingest/index.ts"
+    "ingest": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/ingest/index.ts"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
