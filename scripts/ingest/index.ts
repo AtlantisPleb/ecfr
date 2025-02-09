@@ -23,6 +23,14 @@ function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 }
 
+function generateSortableName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^the\s+/i, '') // Remove leading "The"
+    .replace(/[^a-z0-9\s]/g, '') // Remove special chars
+    .trim()
+}
+
 export async function main() {
   try {
     console.log('Starting eCFR ingestion...')
@@ -81,18 +89,27 @@ export async function main() {
 
         const displayName = agency.display_name || agency.name
         const slug = generateSlug(displayName)
+        const sortableName = generateSortableName(displayName)
 
         // Create or update agency
         const dbAgency = await prisma.agency.upsert({
           where: { id: agency.slug },
           create: {
             id: agency.slug,
-            name: displayName,
-            slug
+            name: agency.name,
+            short_name: agency.short_name,
+            display_name: displayName,
+            sortable_name: sortableName,
+            slug,
+            parent_id: agency.parent_id
           },
           update: {
-            name: displayName,
-            slug
+            name: agency.name,
+            short_name: agency.short_name,
+            display_name: displayName,
+            sortable_name: sortableName,
+            slug,
+            parent_id: agency.parent_id
           }
         }).catch(error => {
           console.error('Database error creating/updating agency:', error)
@@ -138,6 +155,7 @@ export async function main() {
                   id: `title-${title.number}`,
                   number: title.number,
                   name: title.name,
+                  type: 'CFR',
                   agencyId: dbAgency.id
                 },
                 update: {
