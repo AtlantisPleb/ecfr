@@ -184,10 +184,27 @@ export async function ingest(options: IngestionOptions = {}) {
     // Filter agencies if agencySlug is provided
     let filteredAgencies = agencies
     if (options.agencySlug) {
-      filteredAgencies = agencies.filter(a => a.slug === options.agencySlug)
-      if (filteredAgencies.length === 0) {
-        throw new Error(`No agency found with slug: ${options.agencySlug}`)
+      // First check if agency exists in database
+      const dbAgency = await prisma.agency.findUnique({
+        where: { slug: options.agencySlug }
+      })
+
+      if (!dbAgency) {
+        throw new Error(`No agency found in database with slug: ${options.agencySlug}`)
       }
+
+      // Find matching agency in API response
+      const apiAgency = agencies.find(a => a.slug === options.agencySlug)
+      if (!apiAgency) {
+        throw new Error(`Agency exists in database but not found in API response: ${options.agencySlug}`)
+      }
+
+      filteredAgencies = [apiAgency]
+      console.log('\nFound agency in both database and API:', {
+        name: apiAgency.name,
+        slug: apiAgency.slug,
+        references: apiAgency.cfr_references?.length || 0
+      })
     }
 
     // Get only root agencies (no parent_id)
