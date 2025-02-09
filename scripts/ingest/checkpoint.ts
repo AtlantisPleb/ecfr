@@ -53,20 +53,30 @@ export async function shouldSkipAgency(
   checkpoint: CheckpointData | null,
   prisma: PrismaClient
 ): Promise<boolean> {
-  if (!checkpoint?.lastAgencyId) {
-    // No checkpoint, check if we have any data
-    const count = await prisma.agency.count()
-    if (count === 0) return false // Fresh start
-    
-    // We have data but no checkpoint, start from beginning
-    const firstAgency = await prisma.agency.findFirst({
-      orderBy: { name: 'asc' }
-    })
-    return agencyId !== firstAgency?.id
+  // First check if we have any data at all
+  const count = await prisma.agency.count()
+  if (count === 0) {
+    console.log('No data in database, starting fresh')
+    return false
   }
 
-  // Skip until we reach the last processed agency
-  return agencyId !== checkpoint.lastAgencyId
+  // If we have a checkpoint, use it
+  if (checkpoint?.lastAgencyId) {
+    const wasProcessed = await prisma.agency.findUnique({
+      where: { id: checkpoint.lastAgencyId }
+    })
+    if (!wasProcessed) {
+      console.log('Last processed agency not found, starting fresh')
+      return false
+    }
+    return agencyId !== checkpoint.lastAgencyId
+  }
+
+  // No checkpoint but we have data - check if this agency exists
+  const exists = await prisma.agency.findUnique({
+    where: { id: agencyId }
+  })
+  return !!exists
 }
 
 export async function shouldSkipTitle(
