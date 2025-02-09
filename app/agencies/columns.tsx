@@ -28,7 +28,7 @@ export const columns: ColumnDef<AgencyWithRelations>[] = [
     },
     cell: ({ row }) => {
       const name = row.original.name
-      const slug = row.original.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      const slug = row.original.slug
       return (
         <Link 
           href={`/agencies/${slug}`}
