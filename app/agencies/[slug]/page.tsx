@@ -25,11 +25,15 @@ export default async function AgencyPage({
     include: {
       titles: {
         include: {
-          wordCounts: {
+          versions: {
             orderBy: {
               date: 'desc'
             },
-            take: 1
+            take: 1,
+            select: {
+              wordCount: true,
+              date: true
+            }
           }
         }
       },
