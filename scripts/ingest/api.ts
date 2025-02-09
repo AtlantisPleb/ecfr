@@ -1,6 +1,9 @@
-import { ECFRAgency, ECFRTitle, ProcessedContent, ECFRChapter, ECFRPart, ECFRSubpart, ECFRSection } from './types.js'
-import { RateLimiter } from './rateLimiter.js'
-import { calculateTextMetrics, extractReferences } from './analysis.js'
+import { calculateTextMetrics, extractReferences } from "./analysis.js"
+import { RateLimiter } from "./rateLimiter.js"
+import {
+  ECFRAgency, ECFRChapter, ECFRPart, ECFRSection, ECFRSubpart, ECFRTitle,
+  ProcessedContent
+} from "./types.js"
 
 const BASE_URL = 'https://www.ecfr.gov'
 const API_HEADERS = {
@@ -33,7 +36,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
         headers: API_HEADERS,
         redirect: 'follow'
       })
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           throw new APIError('Not found', 404, false)
@@ -44,7 +47,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
         }
         if (response.status === 503) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
-          console.log(`Service unavailable, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+          console.log(`Service unavailable, retrying in ${delay / 1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
           await new Promise(resolve => setTimeout(resolve, delay))
           retryCount++
           continue
@@ -53,7 +56,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
         const text = await response.text()
         throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
       }
-      
+
       const contentType = response.headers.get('content-type')
       if (contentType?.includes('application/json')) {
         return await response.json()
@@ -77,7 +80,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
       }
       retryCount++
       const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
-      console.log(`Error fetching ${url}, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+      console.log(`Error fetching ${url}, retrying in ${delay / 1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
@@ -98,7 +101,7 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     const data = await fetchWithRetry('/api/versioner/v1/titles.json')
-    
+
     if (!data.titles) {
       console.error('No titles array in response:', data)
       return []
@@ -107,7 +110,7 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
     // Sort titles by number to ensure consistent order
     const titles = [...data.titles]
     titles.sort((a, b) => a.number - b.number)
-    
+
     return titles
   } catch (error) {
     console.error('Error fetching titles:', error)
@@ -119,72 +122,74 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
   console.log('\nParsing structure from API response...')
   const chapters: ECFRChapter[] = []
 
-  if (!contentObj.structure) {
-    console.log('No structure found in API response')
+  if (!contentObj.children) {
+    console.log('No children array found in API response')
     console.log('Response keys:', Object.keys(contentObj))
     return { chapters }
   }
 
-  if (!contentObj.structure.chapters) {
-    console.log('No chapters found in structure')
-    console.log('Structure keys:', Object.keys(contentObj.structure))
-    return { chapters }
-  }
+  // Filter for chapter nodes
+  const chapterNodes = contentObj.children.filter(
+    (node: any) => node.label_level === 'chapter'
+  )
 
-  console.log(`Found ${contentObj.structure.chapters.length} chapters in API response`)
+  console.log(`Found ${chapterNodes.length} chapters in API response`)
 
-  for (const chapterData of contentObj.structure.chapters) {
-    console.log(`\nParsing Chapter ${chapterData.number}: ${chapterData.name}`)
+  for (const chapterNode of chapterNodes) {
+    console.log(`\nParsing Chapter ${chapterNode.label}`)
     const chapter: ECFRChapter = {
-      number: parseInt(chapterData.number),
-      name: chapterData.name,
+      number: parseInt(chapterNode.label.split(' ')[1]),
+      name: chapterNode.label_description || chapterNode.label,
       parts: []
     }
 
-    if (chapterData.parts) {
-      console.log(`Found ${chapterData.parts.length} parts in chapter ${chapter.number}`)
-      for (const partData of chapterData.parts) {
-        console.log(`Parsing Part ${partData.number}: ${partData.name}`)
-        const part: ECFRPart = {
-          number: parseInt(partData.number),
-          name: partData.name,
-          subparts: []
-        }
+    // Find part nodes in chapter's children
+    const partNodes = (chapterNode.children || []).filter(
+      (node: any) => node.label_level === 'part'
+    )
 
-        if (partData.subparts) {
-          console.log(`Found ${partData.subparts.length} subparts in part ${part.number}`)
-          for (const subpartData of partData.subparts) {
-            console.log(`Parsing Subpart: ${subpartData.name}`)
-            const subpart: ECFRSubpart = {
-              name: subpartData.name,
-              sections: []
-            }
-
-            if (subpartData.sections) {
-              console.log(`Found ${subpartData.sections.length} sections in subpart ${subpart.name}`)
-              for (const sectionData of subpartData.sections) {
-                console.log(`Parsing Section ${sectionData.number}: ${sectionData.name}`)
-                const section: ECFRSection = {
-                  number: sectionData.number,
-                  name: sectionData.name,
-                  content: sectionData.content || ''
-                }
-                subpart.sections.push(section)
-              }
-            } else {
-              console.log('No sections found in subpart')
-            }
-
-            part.subparts.push(subpart)
-          }
-        } else {
-          console.log('No subparts found in part')
-        }
-
-        chapter.parts.push(part)
+    console.log(`Found ${partNodes.length} parts in chapter ${chapter.number}`)
+    for (const partNode of partNodes) {
+      console.log(`Parsing Part ${partNode.label}`)
+      const part: ECFRPart = {
+        number: parseInt(partNode.label.split(' ')[1]),
+        name: partNode.label_description || partNode.label,
+        subparts: []
       }
-    } else {
-      console.log('No parts found in chapter')
+
+      // Find subpart nodes in part's children
+      const subpartNodes = (partNode.children || []).filter(
+        (node: any) => node.label_level === 'subpart'
+      )
+
+      console.log(`Found ${subpartNodes.length} subparts in part ${part.number}`)
+      for (const subpartNode of subpartNodes) {
+        console.log(`Parsing Subpart: ${subpartNode.label}`)
+        const subpart: ECFRSubpart = {
+          name: subpartNode.label_description || subpartNode.label,
+          sections: []
+        }
+
+        // Find section nodes in subpart's children
+        const sectionNodes = (subpartNode.children || []).filter(
+          (node: any) => node.label_level === 'section'
+        )
+
+        console.log(`Found ${sectionNodes.length} sections in subpart ${subpart.name}`)
+        for (const sectionNode of sectionNodes) {
+          console.log(`Parsing Section ${sectionNode.label}`)
+          const section: ECFRSection = {
+            number: sectionNode.label.split(' ')[1],
+            name: sectionNode.label_description || sectionNode.label,
+            content: sectionNode.content || ''
+          }
+          subpart.sections.push(section)
+        }
+
+        part.subparts.push(subpart)
+      }
+
+      chapter.parts.push(part)
     }
 
     chapters.push(chapter)
@@ -194,10 +199,10 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
   console.log('Summary:')
   console.log(`- ${chapters.length} chapters`)
   console.log(`- ${chapters.reduce((sum, ch) => sum + ch.parts.length, 0)} parts`)
-  console.log(`- ${chapters.reduce((sum, ch) => 
+  console.log(`- ${chapters.reduce((sum, ch) =>
     sum + ch.parts.reduce((psum, p) => psum + p.subparts.length, 0), 0)} subparts`)
-  console.log(`- ${chapters.reduce((sum, ch) => 
-    sum + ch.parts.reduce((psum, p) => 
+  console.log(`- ${chapters.reduce((sum, ch) =>
+    sum + ch.parts.reduce((psum, p) =>
       psum + p.subparts.reduce((ssum, s) => ssum + s.sections.length, 0), 0), 0)} sections`)
 
   return { chapters }
@@ -224,7 +229,7 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
     // Get the content using the structure endpoint
     console.log(`Fetching structure data for Title ${titleNumber}...`)
     const url = `/api/versioner/v1/structure/${latestDate}/title-${titleNumber}.json`
-    
+
     let retryCount = 0
     const maxRetries = 5
 
@@ -235,7 +240,7 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
           headers: API_HEADERS,
           redirect: 'follow'
         })
-        
+
         if (!response.ok) {
           if (response.status === 404) {
             console.log(`Title ${titleNumber} not found (404), skipping`)
@@ -247,21 +252,21 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
           }
           if (response.status === 503) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
-            console.log(`Service unavailable, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+            console.log(`Service unavailable, retrying in ${delay / 1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
             await new Promise(resolve => setTimeout(resolve, delay))
             retryCount++
             continue
           }
-          
+
           const text = await response.text()
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
         const content = await response.text()
         const contentObj = JSON.parse(content)
-        
+
         console.log('Parsing content...')
-        
+
         // Extract all text content for metrics
         const allText = JSON.stringify(contentObj, null, 2)
         const wordCount = allText
@@ -301,7 +306,7 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
         }
         retryCount++
         const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
-        console.log(`Error fetching title ${titleNumber}, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+        console.log(`Error fetching title ${titleNumber}, retrying in ${delay / 1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
