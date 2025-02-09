@@ -24,7 +24,7 @@ export default async function TitlePage({
           targetRefs: true
         },
         orderBy: {
-          amendment_date: 'desc'
+          date: 'desc'
         }
       },
       chapters: {
@@ -105,15 +105,15 @@ export default async function TitlePage({
           <h2 className="text-xl font-semibold mb-4">Metrics</h2>
           <MetricsDashboard
             wordCounts={title.versions.map(v => ({
-              date: v.amendment_date,
+              date: v.date,
               count: v.textMetrics?.wordCount ?? 0
             }))}
             changes={title.versions.map(v => ({
-              date: v.amendment_date,
+              date: v.date,
               count: v.changes.length
             }))}
             references={title.versions.map(v => ({
-              date: v.amendment_date,
+              date: v.date,
               incoming: v.targetRefs.length,
               outgoing: v.sourceRefs.length
             }))}
