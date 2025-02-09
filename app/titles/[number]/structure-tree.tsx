@@ -9,7 +9,10 @@ import {
 } from "@/components/ui/accordion"
 import Link from 'next/link'
 
-type ChapterWithRelations = Chapter & {
+type ChapterWithRelations = {
+  id: string
+  number: number
+  name: string
   parts: (Part & {
     subparts: (Subpart & {
       sections: Section[]
@@ -57,16 +60,15 @@ export function StructureTree({ chapters }: StructureTreeProps) {
                               <AccordionContent>
                                 <div className="pl-4 space-y-2">
                                   {subpart.sections.map(section => (
-                                    <Link
+                                    <div
                                       key={section.id}
-                                      href={`/titles/${chapter.titleId}/sections/${section.number}`}
                                       className="block py-2 px-4 rounded-md hover:bg-gray-100"
                                     >
                                       <div className="flex items-center gap-2">
                                         <div className="font-medium">§ {section.number}</div>
                                         <div className="text-sm text-gray-500">{section.name}</div>
                                       </div>
-                                    </Link>
+                                    </div>
                                   ))}
                                 </div>
                               </AccordionContent>
