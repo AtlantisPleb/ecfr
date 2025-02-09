@@ -22,7 +22,7 @@ export default async function AgenciesPage() {
   }) as AgencyWithRelations[]
 
   return (
-    <div className="bg-white/30 p-12 shadow-xl ring-1 ring-gray-900/5 rounded-lg backdrop-blur-lg max-w-xl mx-auto w-full">
+    <div className="bg-white/30 p-12 shadow-xl ring-1 ring-gray-900/5 rounded-lg backdrop-blur-lg max-w-7xl mx-auto w-full">
       <div className="space-y-1 mb-4">
         <h2 className="text-xl font-semibold">Federal Agencies</h2>
         <p className="text-sm text-gray-500">
