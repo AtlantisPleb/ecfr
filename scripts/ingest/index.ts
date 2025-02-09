@@ -189,22 +189,42 @@ export async function ingest(options: IngestionOptions = {}) {
         where: { slug: options.agencySlug }
       })
 
-      if (!dbAgency) {
-        throw new Error(`No agency found in database with slug: ${options.agencySlug}`)
-      }
+      if (dbAgency) {
+        // Find matching API agency
+        const apiAgency = agencies.find(a => a.slug === options.agencySlug)
+        if (!apiAgency) {
+          console.log(`Warning: Agency ${options.agencySlug} found in database but not in API response`)
+          console.log('This might mean the agency was renamed or removed from the API')
+          console.log('Proceeding with database agency...')
+          
+          // Create a minimal agency object from database record
+          filteredAgencies = [{
+            name: dbAgency.name,
+            short_name: dbAgency.short_name || null,
+            display_name: dbAgency.display_name,
+            sortable_name: dbAgency.sortable_name,
+            slug: dbAgency.slug,
+            children: [],
+            cfr_references: [], // Will be populated from API data
+            parent_id: dbAgency.parent_id || undefined
+          }]
 
-      // Find matching agency in API response
-      const apiAgency = agencies.find(a => a.slug === options.agencySlug)
-      if (!apiAgency) {
-        throw new Error(`Agency exists in database but not found in API response: ${options.agencySlug}`)
+          // Find any references to this agency's titles in the API data
+          for (const agency of agencies) {
+            if (agency.cfr_references?.length) {
+              filteredAgencies[0].cfr_references.push(...agency.cfr_references)
+            }
+          }
+        } else {
+          filteredAgencies = [apiAgency]
+        }
+      } else {
+        // Check API response
+        filteredAgencies = agencies.filter(a => a.slug === options.agencySlug)
+        if (filteredAgencies.length === 0) {
+          throw new Error(`No agency found with slug: ${options.agencySlug} (checked both database and API)`)
+        }
       }
-
-      filteredAgencies = [apiAgency]
-      console.log('\nFound agency in both database and API:', {
-        name: apiAgency.name,
-        slug: apiAgency.slug,
-        references: apiAgency.cfr_references?.length || 0
-      })
     }
 
     // Get only root agencies (no parent_id)
