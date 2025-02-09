@@ -2,7 +2,7 @@
 
 import { Agency, Version } from '@prisma/client'
 import { Badge } from '@/components/ui/badge'
-import { timeAgo } from '@/lib/utils'
+import { format } from 'date-fns'
 import Link from 'next/link'
 
 interface TitleHeaderProps {
@@ -48,7 +48,7 @@ export function TitleHeader({
 
       {latestVersion && (
         <div className="text-sm text-gray-500 mt-2">
-          Last updated {timeAgo(latestVersion.amendment_date)}
+          Last updated {format(latestVersion.amendment_date, 'MMMM d, yyyy')}
         </div>
       )}
     </div>
