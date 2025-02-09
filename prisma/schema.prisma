@@ -14,7 +14,13 @@ datasource db {
 model Agency {
   id              String            @id @default(cuid())
   name            String
+  short_name      String?
+  display_name    String
+  sortable_name   String
   slug            String            @unique
+  parent_id       String?
+  parent          Agency?           @relation("AgencyHierarchy", fields: [parent_id], references: [id])
+  children        Agency[]          @relation("AgencyHierarchy")
   titles          Title[]
   wordCounts      WordCount[]
   activityMetrics ActivityMetrics[]
@@ -26,11 +32,61 @@ model Title {
   id          String      @id @default(cuid())
   number      Int
   name        String
+  type        String      // e.g., "CFR"
+  chapter     Int?
+  part        Int?
+  subpart     String?
+  section     String?
+  url         String?
   agency      Agency      @relation(fields: [agencyId], references: [id])
   agencyId    String
+  chapters    Chapter[]
   versions    Version[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+}
+
+model Chapter {
+  id          String    @id @default(cuid())
+  number      Int
+  name        String
+  titleId     String
+  title       Title     @relation(fields: [titleId], references: [id])
+  parts       Part[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Part {
+  id          String    @id @default(cuid())
+  number      Int
+  name        String
+  chapterId   String
+  chapter     Chapter   @relation(fields: [chapterId], references: [id])
+  subparts    Subpart[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Subpart {
+  id          String    @id @default(cuid())
+  name        String
+  partId      String
+  part        Part      @relation(fields: [partId], references: [id])
+  sections    Section[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Section {
+  id          String    @id @default(cuid())
+  number      String
+  name        String
+  content     String    @db.Text
+  subpartId   String
+  subpart     Subpart   @relation(fields: [subpartId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Version {
@@ -66,7 +122,7 @@ model WordCount {
   createdAt   DateTime    @default(now())
 }
 
-// New models for analysis metrics
+// Analysis metrics models
 
 model TextMetrics {
   id              String    @id @default(cuid())
