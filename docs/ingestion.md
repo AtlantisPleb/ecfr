@@ -3,6 +3,24 @@
 ## Overview
 The ingestion system downloads and processes data from the eCFR API, storing it in a structured database. It handles agencies, titles, and their hierarchical content (chapters, parts, subparts, sections), along with versioning and analytics data.
 
+## File Structure
+
+### Core Files
+- `scripts/ingest/api.ts` - Core API interface with rate limiting and error handling
+- `scripts/ingest/analysis.ts` - Text analysis utilities for metrics and references
+- `scripts/ingest/checkpoint.ts` - Progress tracking functionality
+- `scripts/ingest/index.ts` - Main entry point
+- `scripts/ingest/rateLimiter.ts` - API rate limiting implementation
+- `scripts/ingest/run.ts` - Ingestion process runner
+- `scripts/ingest/types.ts` - TypeScript type definitions
+
+### Processors
+- `scripts/ingest/processors/agencyProcessor.ts` - Handles agency data processing and relationships
+- `scripts/ingest/processors/hierarchyProcessor.ts` - Manages content hierarchy (chapters/parts/subparts/sections)
+- `scripts/ingest/processors/metricsProcessor.ts` - Processes text metrics and activity tracking
+- `scripts/ingest/processors/titleProcessor.ts` - Handles title processing and version management
+- `scripts/ingest/processors/versionProcessor.ts` - Manages content versions and change tracking
+
 ## Architecture
 
 ### Core Components
@@ -16,19 +34,49 @@ The ingestion system downloads and processes data from the eCFR API, storing it 
   - `/api/versioner/v1/versions/title-{number}.json` - Title versions
   - `/api/versioner/v1/structure/{date}/title-{number}.json` - Title content
 
-#### 2. Processors
-- **titleProcessor.ts**: Handles title creation and updates
-- **agencyProcessor.ts**: Manages agency data and relationships
-- **hierarchyProcessor.ts**: Processes structural content (chapters/parts/subparts/sections)
-- **versionProcessor.ts**: Manages content versions and changes
-- **metricsProcessor.ts**: Calculates and stores analytics data
+#### 2. Analysis (`analysis.ts`)
+- Text metrics calculation
+  - Word count
+  - Unique words
+  - Average word length
+  - Average sentence length
+- Reference extraction
+  - CFR references
+  - Title/Part references
+  - Section references
+  - Chapter references
+  - Subpart references
 
-#### 3. Database Models
-- **Agency**: Government agencies and their hierarchies
-- **Title**: CFR titles and basic metadata
-- **Chapter/Part/Subpart/Section**: Hierarchical content structure
-- **Version**: Content versions with change tracking
-- **Analytics**: TextMetrics, References, ActivityMetrics, WordCount
+#### 3. Processors
+- **agencyProcessor.ts**:
+  - Agency creation/updates
+  - Slug generation
+  - Sortable name generation
+  - Agency relationships
+  
+- **hierarchyProcessor.ts**:
+  - Hierarchical content management
+  - Chapter/Part/Subpart/Section creation
+  - Content cleanup and validation
+  - Structure maintenance
+  
+- **metricsProcessor.ts**:
+  - Text metrics processing
+  - Reference tracking
+  - Activity metrics
+  - Word count tracking
+  
+- **titleProcessor.ts**:
+  - Title creation/updates
+  - Version management
+  - Agency associations
+  - Content processing
+  
+- **versionProcessor.ts**:
+  - Version creation
+  - Change tracking
+  - Citation management
+  - Content updates
 
 ### Data Flow
 
