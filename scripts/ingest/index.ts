@@ -1,8 +1,12 @@
-import { PrismaClient } from '@prisma/client'
-import { fetchAgencies, fetchTitles, fetchTitleContent } from './api.js'
-import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint.js'
-import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
-import { calculateTextMetrics, extractReferences, compareVersions } from './analysis.js'
+import { PrismaClient } from "@prisma/client"
+import {
+  calculateTextMetrics, compareVersions, extractReferences
+} from "./analysis.js"
+import { fetchAgencies, fetchTitleContent, fetchTitles } from "./api.js"
+import {
+  loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle
+} from "./checkpoint.js"
+import { ECFRAgency, ECFRTitle, ProcessedContent } from "./types.js"
 
 const prisma = new PrismaClient({
   log: ['error']
@@ -31,10 +35,40 @@ function generateSortableName(name: string): string {
     .trim()
 }
 
+async function ensureTitleExists(title: ECFRTitle): Promise<void> {
+  try {
+    // First try to find the title
+    const existing = await prisma.title.findUnique({
+      where: { number: title.number }
+    })
+
+    if (!existing) {
+      // Create if it doesn't exist
+      await prisma.title.create({
+        data: {
+          id: `title-${title.number}`,
+          number: title.number,
+          name: title.name,
+          type: 'CFR'
+        }
+      })
+    } else if (existing.name !== title.name) {
+      // Update if name has changed
+      await prisma.title.update({
+        where: { number: title.number },
+        data: { name: title.name }
+      })
+    }
+  } catch (error) {
+    console.error(`Error ensuring title ${title.number} exists:`, error)
+    throw error
+  }
+}
+
 export async function main() {
   try {
     console.log('Starting eCFR ingestion...')
-    
+
     // Test database connection
     try {
       await prisma.$connect()
@@ -74,23 +108,7 @@ export async function main() {
     // First, ensure all titles exist
     console.log('Creating/updating titles...')
     for (const title of titles) {
-      try {
-        await prisma.title.upsert({
-          where: { number: title.number },
-          create: {
-            id: `title-${title.number}`,
-            number: title.number,
-            name: title.name,
-            type: 'CFR'
-          },
-          update: {
-            name: title.name
-          }
-        })
-      } catch (error) {
-        console.error(`Error creating/updating title ${title.number}:`, error)
-        throw error
-      }
+      await ensureTitleExists(title)
     }
     console.log('Titles created/updated successfully')
 
@@ -268,7 +286,7 @@ export async function main() {
 
               processedTitles++
               agencyTitlesProcessed++
-              
+
               // Save progress
               await saveCheckpoint({
                 lastAgencyId: agency.slug,
@@ -289,7 +307,7 @@ export async function main() {
         }
 
         processedAgencies++
-        
+
         // Save agency checkpoint
         await saveCheckpoint({
           lastAgencyId: agency.slug,
