@@ -12,13 +12,14 @@ datasource db {
 }
 
 model Agency {
-  id          String      @id @default(cuid())
-  name        String
-  slug        String      @unique
-  titles      Title[]
-  wordCounts  WordCount[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id              String            @id @default(cuid())
+  name            String
+  slug            String            @unique
+  titles          Title[]
+  wordCounts      WordCount[]
+  activityMetrics ActivityMetrics[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 }
 
 model Title {
@@ -33,14 +34,17 @@ model Title {
 }
 
 model Version {
-  id          String      @id @default(cuid())
-  titleId     String
-  title       Title       @relation(fields: [titleId], references: [id])
-  content     String      @db.Text
-  wordCount   Int
-  date        DateTime
-  changes     Change[]
-  createdAt   DateTime    @default(now())
+  id           String        @id @default(cuid())
+  titleId      String
+  title        Title         @relation(fields: [titleId], references: [id])
+  content      String        @db.Text
+  wordCount    Int
+  date         DateTime
+  changes      Change[]
+  textMetrics  TextMetrics[]
+  sourceRefs   Reference[]   @relation("SourceReferences")
+  targetRefs   Reference[]   @relation("TargetReferences")
+  createdAt    DateTime      @default(now())
 }
 
 model Change {
@@ -60,4 +64,40 @@ model WordCount {
   count       Int
   date        DateTime
   createdAt   DateTime    @default(now())
+}
+
+// New models for analysis metrics
+
+model TextMetrics {
+  id              String    @id @default(cuid())
+  versionId       String
+  version         Version   @relation(fields: [versionId], references: [id])
+  wordCount       Int       // Total words
+  uniqueWords     Int       // Unique word count
+  avgWordLength   Float     // Average word length
+  avgSentenceLen  Float     // Average sentence length
+  createdAt       DateTime  @default(now())
+}
+
+model Reference {
+  id              String    @id @default(cuid())
+  sourceId        String    // Version ID that contains reference
+  source          Version   @relation("SourceReferences", fields: [sourceId], references: [id])
+  targetId        String    // Version ID being referenced
+  target          Version   @relation("TargetReferences", fields: [targetId], references: [id])
+  context         String    // The actual text containing the reference
+  type            String    // INTERNAL (same agency) or EXTERNAL (different agency)
+  createdAt       DateTime  @default(now())
+}
+
+model ActivityMetrics {
+  id              String    @id @default(cuid())
+  agencyId        String
+  agency          Agency    @relation(fields: [agencyId], references: [id])
+  date            DateTime  // Usually month start
+  newContent      Int      // Words added in new sections
+  modifiedContent Int      // Words changed in existing sections
+  deletedContent  Int      // Words removed
+  totalWords      Int      // Total words at this point
+  createdAt       DateTime  @default(now())
 }
