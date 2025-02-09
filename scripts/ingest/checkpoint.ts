@@ -1,9 +1,12 @@
 import { PrismaClient } from '@prisma/client'
-import { CheckpointData } from './types'
+import { CheckpointData } from './types.js'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
-const CHECKPOINT_FILE = path.join(process.cwd(), 'checkpoint.json')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const CHECKPOINT_FILE = path.join(__dirname, '../../checkpoint.json')
 
 export async function loadCheckpoint(): Promise<CheckpointData | null> {
   try {
