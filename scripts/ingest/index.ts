@@ -1,88 +1,22 @@
-import { PrismaClient } from "@prisma/client"
-import {
-  calculateTextMetrics, compareVersions, extractReferences
-} from "./analysis.js"
-import { fetchAgencies, fetchTitleContent, fetchTitles } from "./api.js"
-import {
-  loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle
-} from "./checkpoint.js"
-import { ECFRAgency, ECFRTitle, ProcessedContent } from "./types.js"
-
-const prisma = new PrismaClient({
-  log: ['error']
-})
-
-function formatProgress(current: number, total: number): string {
-  // Ensure we don't exceed 100%
-  const adjustedCurrent = Math.min(current, total)
-  const percentage = Math.round((adjustedCurrent / total) * 100)
-  const width = 50
-  const filled = Math.round((width * adjustedCurrent) / total)
-  const empty = Math.max(0, width - filled) // Ensure we don't get negative empty space
-  const bar = '█'.repeat(filled) + '░'.repeat(empty)
-  return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
-}
-
-function generateSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-}
-
-function generateSortableName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/^the\s+/i, '') // Remove leading "The"
-    .replace(/[^a-z0-9\s]/g, '') // Remove special chars
-    .trim()
-}
-
-async function ensureTitleExists(title: ECFRTitle): Promise<void> {
-  try {
-    // First try to find the title
-    const existing = await prisma.title.findUnique({
-      where: { number: title.number }
-    })
-
-    if (!existing) {
-      // Create if it doesn't exist
-      await prisma.title.create({
-        data: {
-          id: `title-${title.number}`,
-          number: title.number,
-          name: title.name,
-          type: 'CFR'
-        }
-      })
-    } else if (existing.name !== title.name) {
-      // Update if name has changed
-      await prisma.title.update({
-        where: { number: title.number },
-        data: { name: title.name }
-      })
-    }
-  } catch (error) {
-    console.error(`Error ensuring title ${title.number} exists:`, error)
-    throw error
-  }
-}
+import { connectDB, disconnectDB, prisma } from './processors/db'
+import { processAgency } from './processors/agencyProcessor'
+import { ensureTitleExists, processTitleContent } from './processors/titleProcessor'
+import { fetchAgencies, fetchTitles } from './api'
+import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint'
 
 export async function main() {
   try {
     console.log('Starting eCFR ingestion...')
 
-    // Test database connection
-    try {
-      await prisma.$connect()
-    } catch (error) {
-      console.error('Database connection failed:', error)
-      throw error
-    }
+    // Connect to database
+    await connectDB()
 
     // Load checkpoint
     let checkpoint = await loadCheckpoint()
 
     // Fetch initial data
-    let agencies: ECFRAgency[] = []
-    let titles: ECFRTitle[] = []
+    let agencies = []
+    let titles = []
 
     try {
       agencies = await fetchAgencies()
@@ -108,7 +42,7 @@ export async function main() {
     // First, ensure all titles exist
     console.log('Creating/updating titles...')
     for (const title of titles) {
-      await ensureTitleExists(title)
+      await ensureTitleExists(prisma, title)
     }
     console.log('Titles created/updated successfully')
 
@@ -125,39 +59,13 @@ export async function main() {
           continue
         }
 
-        console.log(`\nProcessing agency: ${agency.name}`)
+        console.log(`\\nProcessing agency: ${agency.name}`)
         console.log(`Agency Progress: ${formatProgress(processedAgencies + 1, totalAgencies)}`)
 
-        const displayName = agency.display_name || agency.name
-        const slug = generateSlug(displayName)
-        const sortableName = generateSortableName(displayName)
+        // Process agency and get its ID
+        const agencyId = await processAgency(prisma, agency)
 
-        // Create or update agency
-        const dbAgency = await prisma.agency.upsert({
-          where: { id: agency.slug },
-          create: {
-            id: agency.slug,
-            name: agency.name,
-            short_name: agency.short_name,
-            display_name: displayName,
-            sortable_name: sortableName,
-            slug,
-            parent_id: agency.parent_id
-          },
-          update: {
-            name: agency.name,
-            short_name: agency.short_name,
-            display_name: displayName,
-            sortable_name: sortableName,
-            slug,
-            parent_id: agency.parent_id
-          }
-        }).catch(error => {
-          console.error('Database error creating/updating agency:', error)
-          throw error
-        })
-
-        // Process titles
+        // Process titles for this agency
         let agencyTitlesProcessed = 0
         const agencyTitlesTotal = agency.cfr_references?.length || 0
 
@@ -178,111 +86,10 @@ export async function main() {
 
               console.log(`Processing Title ${title.number}: ${title.name}`)
               console.log(`Title Progress for ${agency.name}: ${formatProgress(agencyTitlesProcessed + 1, agencyTitlesTotal)}`)
-              // Cap the overall title progress at total titles
               console.log(`Overall Title Progress: ${formatProgress(Math.min(processedTitles + 1, totalTitles), totalTitles)}`)
 
-              const result = await fetchTitleContent(title.number)
-              if (!result) {
-                agencyTitlesProcessed++
-                continue
-              }
-
-              const { content, wordCount } = result
-
-              // Connect agency to title (many-to-many)
-              await prisma.agency.update({
-                where: { id: dbAgency.id },
-                data: {
-                  titles: {
-                    connect: { number: title.number }
-                  }
-                }
-              }).catch(error => {
-                console.error('Database error connecting agency to title:', error)
-                throw error
-              })
-
-              // Check for changes
-              const latestVersion = await prisma.version.findFirst({
-                where: { titleId: `title-${title.number}` },
-                orderBy: { date: 'desc' }
-              }).catch(error => {
-                console.error('Database error fetching latest version:', error)
-                throw error
-              })
-
-              if (!latestVersion || latestVersion.content !== content) {
-                // Calculate metrics
-                const textMetrics = calculateTextMetrics(content)
-
-                // Create new version with metrics
-                const newVersion = await prisma.version.create({
-                  data: {
-                    titleId: `title-${title.number}`,
-                    content,
-                    wordCount,
-                    date: new Date(),
-                    changes: {
-                      create: {
-                        type: latestVersion ? 'MODIFY' : 'ADD',
-                        section: 'full',
-                        description: latestVersion ? 'Content updated' : 'Initial version'
-                      }
-                    },
-                    textMetrics: {
-                      create: textMetrics
-                    }
-                  }
-                }).catch(error => {
-                  console.error('Database error creating version:', error)
-                  throw error
-                })
-
-                // Extract and create references using the new version's ID
-                const references = extractReferences(content, newVersion.id)
-                for (const ref of references) {
-                  await prisma.reference.create({
-                    data: {
-                      sourceId: newVersion.id,
-                      targetId: newVersion.id, // For now, reference itself
-                      context: ref.context,
-                      type: ref.type
-                    }
-                  }).catch(error => {
-                    console.error('Database error creating reference:', error)
-                    // Don't throw here, continue processing
-                  })
-                }
-
-                // Calculate activity metrics if this is an update
-                if (latestVersion) {
-                  const diff = compareVersions(latestVersion.content, content)
-                  await prisma.activityMetrics.create({
-                    data: {
-                      agencyId: dbAgency.id,
-                      date: new Date(),
-                      newContent: diff.wordCounts.added,
-                      modifiedContent: diff.wordCounts.modified,
-                      deletedContent: diff.wordCounts.deleted,
-                      totalWords: wordCount
-                    }
-                  }).catch(error => {
-                    console.error('Database error creating activity metrics:', error)
-                    // Don't throw here, continue processing
-                  })
-                }
-
-                await prisma.wordCount.create({
-                  data: {
-                    agencyId: dbAgency.id,
-                    count: wordCount,
-                    date: new Date()
-                  }
-                }).catch(error => {
-                  console.error('Database error creating word count:', error)
-                  throw error
-                })
-              }
+              // Process title content
+              await processTitleContent(prisma, title.number, agencyId)
 
               processedTitles++
               agencyTitlesProcessed++
@@ -295,9 +102,6 @@ export async function main() {
                   agenciesProcessed: processedAgencies,
                   titlesProcessed: Math.min(processedTitles, totalTitles)
                 }
-              }).catch(error => {
-                console.error('Error saving checkpoint:', error)
-                throw error
               })
             } catch (error) {
               console.error(`Error processing title ${ref.title}:`, error)
@@ -316,9 +120,6 @@ export async function main() {
             agenciesProcessed: processedAgencies,
             titlesProcessed: Math.min(processedTitles, totalTitles)
           }
-        }).catch(error => {
-          console.error('Error saving agency checkpoint:', error)
-          throw error
         })
       } catch (error) {
         console.error(`Error processing agency ${agency.name}:`, error)
@@ -326,12 +127,22 @@ export async function main() {
       }
     }
 
-    console.log('\neCFR ingestion completed successfully')
+    console.log('\\neCFR ingestion completed successfully')
     console.log(`Processed ${processedAgencies} agencies and ${Math.min(processedTitles, totalTitles)} titles`)
   } catch (error) {
     console.error('Fatal error during ingestion:', error)
     throw error
   } finally {
-    await prisma.$disconnect()
+    await disconnectDB()
   }
+}
+
+function formatProgress(current: number, total: number): string {
+  const adjustedCurrent = Math.min(current, total)
+  const percentage = Math.round((adjustedCurrent / total) * 100)
+  const width = 50
+  const filled = Math.round((width * adjustedCurrent) / total)
+  const empty = Math.max(0, width - filled)
+  const bar = '█'.repeat(filled) + '░'.repeat(empty)
+  return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
