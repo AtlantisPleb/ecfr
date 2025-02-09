@@ -1,27 +1,19 @@
 "use client"
 
 import { WordCount } from '@prisma/client'
-import { Line } from 'react-chartjs-2'
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-} from 'chart.js'
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-)
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
+import { 
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer 
+} from "recharts"
 
 interface WordCountChartProps {
   wordCounts: WordCount[]
@@ -32,40 +24,41 @@ export function WordCountChart({ wordCounts }: WordCountChartProps) {
     new Date(a.date).getTime() - new Date(b.date).getTime()
   )
 
-  const data = {
-    labels: sortedCounts.map(count => 
-      new Date(count.date).toLocaleDateString()
-    ),
-    datasets: [
-      {
-        label: 'Word Count',
-        data: sortedCounts.map(count => count.count),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-      }
-    ]
-  }
+  const data = sortedCounts.map(count => ({
+    date: new Date(count.date).toLocaleDateString(),
+    count: count.count
+  }))
 
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: false,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      }
+  const chartConfig = {
+    wordCount: {
+      label: "Word Count",
+      color: "rgb(59, 130, 246)"
     }
   }
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow">
-      <Line options={options} data={data} />
+    <div className="bg-white p-4 rounded-lg shadow h-[300px]">
+      <ChartContainer config={chartConfig}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="date"
+            tickFormatter={(value) => new Date(value).toLocaleDateString()}
+          />
+          <YAxis 
+            tickFormatter={(value) => value.toLocaleString()}
+          />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Line
+            type="monotone"
+            dataKey="count"
+            name="wordCount"
+            stroke="var(--color-wordCount)"
+            strokeWidth={2}
+            dot={false}
+          />
+        </LineChart>
+      </ChartContainer>
     </div>
   )
 }
