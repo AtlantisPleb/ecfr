@@ -9,9 +9,67 @@ const prisma = new PrismaClient()
 export async function processTitle(
   title: ECFRTitle,
   agencyId: string,
-  content: ProcessedContent
+  content: ProcessedContent | null
 ): Promise<TitleProcessingResult> {
   try {
+    // If no content provided (titles-only mode), just create/update title
+    if (!content) {
+      console.log('\nProcessing title without content (titles-only mode)...')
+      
+      // Check if title exists
+      const existingTitle = await prisma.title.findUnique({
+        where: { number: title.number }
+      })
+
+      // Create or update title
+      let titleRecord: Title
+      if (!existingTitle) {
+        console.log('\nCreating new title record...')
+        titleRecord = await prisma.title.create({
+          data: {
+            number: title.number,
+            name: title.name,
+            type: title.type || 'CFR',
+            agencies: {
+              connect: { id: agencyId }
+            }
+          }
+        })
+        console.log('Created title record:', {
+          id: titleRecord.id,
+          number: titleRecord.number,
+          name: titleRecord.name
+        })
+      } else {
+        console.log('\nUpdating existing title record...')
+        titleRecord = await prisma.title.update({
+          where: { id: existingTitle.id },
+          data: {
+            name: title.name,
+            type: title.type || 'CFR',
+            agencies: {
+              connect: { id: agencyId }
+            }
+          }
+        })
+        console.log('Updated title record:', {
+          id: titleRecord.id,
+          number: titleRecord.number,
+          name: titleRecord.name
+        })
+      }
+
+      return {
+        success: true,
+        data: {
+          id: titleRecord.id,
+          number: titleRecord.number,
+          name: titleRecord.name
+        }
+      }
+    }
+
+    // Full content processing mode
     console.log('\nProcessing title content...')
     console.log('Content structure:', {
       chapters: content.structure.chapters.length,
