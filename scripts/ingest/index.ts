@@ -72,23 +72,27 @@ export async function main() {
     const totalTitles = titles.length
 
     // First, ensure all titles exist
+    console.log('Creating/updating titles...')
     for (const title of titles) {
-      await prisma.title.upsert({
-        where: { id: `title-${title.number}` },
-        create: {
-          id: `title-${title.number}`,
-          number: title.number,
-          name: title.name,
-          type: 'CFR'
-        },
-        update: {
-          name: title.name
-        }
-      }).catch(error => {
-        console.error('Database error creating/updating title:', error)
+      try {
+        await prisma.title.upsert({
+          where: { number: title.number },
+          create: {
+            id: `title-${title.number}`,
+            number: title.number,
+            name: title.name,
+            type: 'CFR'
+          },
+          update: {
+            name: title.name
+          }
+        })
+      } catch (error) {
+        console.error(`Error creating/updating title ${title.number}:`, error)
         throw error
-      })
+      }
     }
+    console.log('Titles created/updated successfully')
 
     // Process agencies
     for (const agency of agencies) {
@@ -172,7 +176,7 @@ export async function main() {
                 where: { id: dbAgency.id },
                 data: {
                   titles: {
-                    connect: { id: `title-${title.number}` }
+                    connect: { number: title.number }
                   }
                 }
               }).catch(error => {
