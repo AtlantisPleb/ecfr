@@ -1,13 +1,13 @@
 "use client"
 
-import { Agency, Title, WordCount } from '@prisma/client'
+import { Agency, Title, WordCount, Version } from '@prisma/client'
 
-type TitleWithWordCount = Title & {
-  wordCounts: WordCount[];
+type TitleWithVersion = Title & {
+  versions: Pick<Version, 'wordCount' | 'date'>[]
 }
 
 type AgencyWithRelations = Agency & {
-  titles: TitleWithWordCount[];
+  titles: TitleWithVersion[];
   wordCounts: WordCount[];
 }
 
@@ -18,14 +18,14 @@ interface AgencyStatsProps {
 export function AgencyStats({ agency }: AgencyStatsProps) {
   // Calculate average words per title
   const avgWordsPerTitle = agency.titles.reduce((acc, title) => {
-    const wordCount = title.wordCounts[0]?.count ?? 0
+    const wordCount = title.versions[0]?.wordCount ?? 0
     return acc + wordCount
   }, 0) / agency.titles.length
 
-  // Find most updated title
+  // Find most updated title (title with most versions)
   const mostUpdatedTitle = agency.titles.reduce((prev, current) => {
-    const prevUpdates = prev.wordCounts.length
-    const currentUpdates = current.wordCounts.length
+    const prevUpdates = prev.versions.length
+    const currentUpdates = current.versions.length
     return currentUpdates > prevUpdates ? current : prev
   }, agency.titles[0])
 
