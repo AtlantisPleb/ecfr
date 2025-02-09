@@ -15,35 +15,6 @@ type VersionWithRelations = Version & {
   targetRefs: Reference[]
 }
 
-type TitleWithRelations = {
-  id: string
-  number: number
-  name: string
-  type: string
-  agencies: Agency[]
-  versions: VersionWithRelations[]
-  chapters: {
-    id: string
-    number: number
-    name: string
-    parts: {
-      id: string
-      number: number
-      name: string
-      subparts: {
-        id: string
-        name: string
-        sections: {
-          id: string
-          number: string
-          name: string
-          content: string
-        }[]
-      }[]
-    }[]
-  }[]
-}
-
 export default async function TitlePage({
   params: { number }
 }: {
@@ -79,7 +50,7 @@ export default async function TitlePage({
         }
       }
     }
-  }) as TitleWithRelations
+  })
 
   if (!title) {
     notFound()
