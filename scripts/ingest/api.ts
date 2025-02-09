@@ -1,7 +1,8 @@
 import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
 import { RateLimiter } from './rateLimiter.js'
 
-const BASE_URL = 'https://www.ecfr.gov/api/versioner/v1'
+const ADMIN_BASE_URL = 'https://www.ecfr.gov/api/admin/v1'
+const VERSIONER_BASE_URL = 'https://www.ecfr.gov/api/versioner/v1'
 const rateLimiter = new RateLimiter()
 
 class APIError extends Error {
@@ -54,6 +55,9 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
         try {
           return JSON.parse(text)
         } catch (e) {
+          if (contentType?.includes('application/xml') || contentType?.includes('text/xml')) {
+            return text // Return raw XML content
+          }
           console.error('Failed to parse response as JSON:', text.slice(0, 200) + '...')
           throw new Error('Invalid JSON response')
         }
@@ -82,7 +86,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
 export async function fetchAgencies(): Promise<ECFRAgency[]> {
   try {
     console.log('Fetching agencies list...')
-    const data = await fetchWithRetry(`${BASE_URL}/agencies.json`)
+    const data = await fetchWithRetry(`${ADMIN_BASE_URL}/agencies.json`)
     console.log('Raw agencies response:', JSON.stringify(data, null, 2))
     return data.agencies || []
   } catch (error) {
@@ -94,7 +98,7 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
-    const data = await fetchWithRetry(`${BASE_URL}/titles.json`)
+    const data = await fetchWithRetry(`${VERSIONER_BASE_URL}/titles.json`)
     console.log('Raw titles response:', JSON.stringify(data, null, 2))
     return data.titles || []
   } catch (error) {
@@ -104,7 +108,7 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 }
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
-  const url = `${BASE_URL}/full/${date}/title-${titleNumber}.xml`
+  const url = `${VERSIONER_BASE_URL}/full/${date}/title-${titleNumber}.xml`
   console.log(`Fetching content for Title ${titleNumber}...`)
   
   try {
