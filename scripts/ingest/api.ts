@@ -20,6 +20,15 @@ class APIError extends Error {
   }
 }
 
+function formatProgress(current: number, total: number): string {
+  const percentage = Math.round((current / total) * 100)
+  const width = 50
+  const filled = Math.round((width * current) / total)
+  const empty = width - filled
+  const bar = '█'.repeat(filled) + '░'.repeat(empty)
+  return `${bar} ${percentage}% (${current}/${total})`
+}
+
 async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
   let retryCount = 0
   let lastError: Error | null = null
@@ -28,15 +37,10 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
   while (retryCount < maxRetries) {
     try {
       await rateLimiter.waitForNext()
-      console.log(`Fetching ${fullUrl}`)
       const response = await fetch(fullUrl, {
         headers: API_HEADERS,
         redirect: 'follow'
       })
-      
-      // Log response details
-      console.log(`Response status: ${response.status}`)
-      console.log(`Response headers:`, Object.fromEntries(response.headers.entries()))
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -49,40 +53,27 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
         if (response.status === 503) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
           console.log(`Service unavailable, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
-          // Log the response body for 503 errors
-          const text = await response.text()
-          console.log('503 response body:', text)
           await new Promise(resolve => setTimeout(resolve, delay))
           retryCount++
           continue
         }
 
         const text = await response.text()
-        console.error(`Error response body:`, text)
         throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
       }
       
       const contentType = response.headers.get('content-type')
-      console.log(`Content-Type:`, contentType)
-      
       if (contentType?.includes('application/json')) {
-        const json = await response.json()
-        console.log('Response JSON:', JSON.stringify(json, null, 2))
-        return json
+        return await response.json()
       } else {
         const text = await response.text()
-        console.log('Response Text (first 500 chars):', text.slice(0, 500))
         try {
-          const json = JSON.parse(text)
-          console.log('Parsed JSON:', JSON.stringify(json, null, 2))
-          return json
+          return JSON.parse(text)
         } catch (e) {
-          console.error('Failed to parse response as JSON:', text.slice(0, 200) + '...')
           throw new Error('Invalid JSON response')
         }
       }
     } catch (error) {
-      console.error('Error details:', error)
       if (error instanceof APIError && !error.shouldRetry) {
         throw error
       }
@@ -94,7 +85,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
       }
       retryCount++
       const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
-      console.log(`Error fetching ${fullUrl}, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+      console.log(`Error fetching ${url}, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
@@ -106,7 +97,6 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
   try {
     console.log('Fetching agencies list...')
     const data = await fetchWithRetry('/api/admin/v1/agencies.json')
-    console.log('Raw agencies response:', JSON.stringify(data, null, 2))
     return data.agencies || []
   } catch (error) {
     console.error('Error fetching agencies:', error)
@@ -118,7 +108,6 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
     const data = await fetchWithRetry('/api/versioner/v1/titles.json')
-    console.log('Raw titles response:', JSON.stringify(data, null, 2))
     if (!data.titles) {
       console.error('No titles array in response:', data)
       return []
@@ -148,8 +137,6 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
 
     // Get the content using the structure endpoint
     const url = `/api/versioner/v1/structure/${latestDate}/title-${titleNumber}.json`
-    console.log(`Fetching content for Title ${titleNumber} version ${latestDate}...`)
-    console.log(`URL: ${url}`)
     
     let retryCount = 0
     const maxRetries = 5
@@ -161,9 +148,6 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
           headers: API_HEADERS,
           redirect: 'follow'
         })
-        
-        console.log(`Title ${titleNumber} response status:`, response.status)
-        console.log(`Title ${titleNumber} response headers:`, Object.fromEntries(response.headers.entries()))
         
         if (!response.ok) {
           if (response.status === 404) {
@@ -177,22 +161,16 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
           if (response.status === 503) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
             console.log(`Service unavailable, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
-            // Log the response body for 503 errors
-            const text = await response.text()
-            console.log('503 response body:', text)
             await new Promise(resolve => setTimeout(resolve, delay))
             retryCount++
             continue
           }
           
           const text = await response.text()
-          console.error(`Error response body for title ${titleNumber}:`, text)
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
         const content = await response.text()
-        console.log(`Title ${titleNumber} content length:`, content.length)
-        console.log(`Title ${titleNumber} content preview:`, content.slice(0, 200))
         
         // For JSON content, we'll count words in the text fields
         const contentObj = JSON.parse(content)
@@ -205,13 +183,11 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
           .split(/\s+/)
           .length
 
-        console.log(`Successfully fetched Title ${titleNumber} (${wordCount} words)`)
         return {
           content,
           wordCount
         }
       } catch (error) {
-        console.error(`Error details for title ${titleNumber}:`, error)
         if (error instanceof APIError && !error.shouldRetry) {
           throw error
         }
