@@ -104,30 +104,49 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
   }
 }
 
+async function fetchTitlesPage(page: number = 1): Promise<any> {
+  return await fetchWithRetry(`/api/versioner/v1/titles.json?page=${page}`)
+}
+
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
-    const data = await fetchWithRetry('/api/versioner/v1/titles.json')
-    // Log the raw response to debug
-    console.log('Raw titles response:', JSON.stringify(data, null, 2))
-    
-    if (!data.titles) {
-      console.error('No titles array in response:', data)
-      return []
+    let allTitles: ECFRTitle[] = []
+    let currentPage = 1
+    let hasMorePages = true
+
+    while (hasMorePages) {
+      console.log(`Fetching titles page ${currentPage}...`)
+      const data = await fetchTitlesPage(currentPage)
+      
+      if (!data.titles) {
+        console.error('No titles array in response:', data)
+        break
+      }
+
+      allTitles = allTitles.concat(data.titles)
+
+      // Check if there are more pages
+      // This logic might need to be adjusted based on the actual API response
+      if (data.meta?.next_page) {
+        currentPage = data.meta.next_page
+      } else if (data.meta?.has_more) {
+        currentPage++
+      } else {
+        hasMorePages = false
+      }
+
+      // If we've fetched all titles (1-50), stop
+      const highestTitleNumber = Math.max(...allTitles.map(t => t.number))
+      if (highestTitleNumber >= 50) {
+        hasMorePages = false
+      }
     }
 
-    // Convert titles object to array if needed
-    const titlesArray = Array.isArray(data.titles) 
-      ? data.titles 
-      : Object.entries(data.titles).map(([number, title]: [string, any]) => ({
-          number: parseInt(number),
-          name: title.name,
-          type: title.type,
-          chapter_count: title.chapter_count,
-          last_updated: title.last_updated
-        }))
-
-    return titlesArray
+    // Sort titles by number to ensure consistent order
+    allTitles.sort((a, b) => a.number - b.number)
+    
+    return allTitles
   } catch (error) {
     console.error('Error fetching titles:', error)
     throw error
