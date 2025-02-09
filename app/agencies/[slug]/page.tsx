@@ -12,15 +12,9 @@ export default async function AgencyPage({
 }: {
   params: { slug: string }
 }) {
-  // Convert slug back to name (basic version - will need to be more robust)
-  const nameFromSlug = params.slug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-
-  const agency = await prisma.agency.findFirst({
+  const agency = await prisma.agency.findUnique({
     where: {
-      name: nameFromSlug
+      slug: params.slug
     },
     include: {
       titles: {
