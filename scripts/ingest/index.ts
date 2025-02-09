@@ -168,7 +168,7 @@ export async function ingest(options: IngestionOptions = {}) {
   const checkpoint = await loadCheckpoint()
   const progress: ProcessingProgress = {
     total: 0,
-    current: checkpoint?.progress.agenciesProcessed ?? 0,
+    current: 0, // Reset to 0 instead of using checkpoint
     completed: [],
     failed: []
   }
@@ -190,10 +190,14 @@ export async function ingest(options: IngestionOptions = {}) {
       }
     }
 
+    // Get only root agencies (no parent_id)
+    const rootAgencies = filteredAgencies.filter(a => !a.parent_id)
+
     // Log agency statistics
     const agenciesWithRefs = filteredAgencies.filter(a => a.cfr_references?.length > 0)
     console.log('\nAgency Statistics:')
     console.log(`- Total agencies: ${filteredAgencies.length}`)
+    console.log(`- Root agencies: ${rootAgencies.length}`)
     console.log(`- Agencies with CFR references: ${agenciesWithRefs.length}`)
     console.log(`- Agencies without references: ${filteredAgencies.length - agenciesWithRefs.length}`)
 
@@ -207,20 +211,18 @@ export async function ingest(options: IngestionOptions = {}) {
     console.log(`- Total titles: ${titles.length}`)
     console.log(`- Total agency-title relationships to process: ${totalRelationships}`)
 
-    // Process each agency and its titles
-    for (const agency of filteredAgencies) {
+    // Process each root agency
+    for (const agency of rootAgencies) {
       await processAgencyData(agency, titles, progress, options)
       progress.current++
-
-      // Save overall progress
-      console.log(`\nAgency Progress: ${formatProgress(progress.current, filteredAgencies.length)}`)
+      console.log(`\nAgency Progress: ${formatProgress(progress.current, rootAgencies.length)}`)
     }
 
     console.log('\n========================================')
     console.log('Ingestion complete!')
     console.log('Final Statistics:')
     console.log(`- Processed ${progress.completed.length}/${totalRelationships} agency-title relationships`)
-    console.log(`- Processed ${progress.current}/${filteredAgencies.length} agencies`)
+    console.log(`- Processed ${progress.current}/${rootAgencies.length} root agencies`)
     
     if (progress.failed.length > 0) {
       console.log(`\nFailed Relationships (${progress.failed.length}):`)
