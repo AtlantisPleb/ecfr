@@ -48,7 +48,7 @@ export function TitleHeader({
 
       {latestVersion && (
         <div className="text-sm text-gray-500 mt-2">
-          Last updated {timeAgo(latestVersion.amendment_date)}
+          Last updated {timeAgo(latestVersion.date)}
         </div>
       )}
     </div>
