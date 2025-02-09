@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { fetchAgencies, fetchTitles, fetchTitleContent } from './api'
 import { processTitle } from './processors/titleProcessor'
+import { processAgency } from './processors/agencyProcessor'
 import { saveCheckpoint, loadCheckpoint } from './checkpoint'
 import { ProcessingProgress } from './types'
 
@@ -16,65 +17,72 @@ function formatProgress(current: number, total: number): string {
   return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
 
-async function processAgency(agencySlug: string, progress: ProcessingProgress) {
-  const agency = await prisma.agency.findUnique({
-    where: { slug: agencySlug },
-    include: { titles: true }
-  })
+async function processAgencyData(agency: any, progress: ProcessingProgress) {
+  try {
+    // Process agency and get its ID
+    const agencyId = await processAgency(agency)
+    const dbAgency = await prisma.agency.findUnique({
+      where: { id: agencyId },
+      include: { titles: true }
+    })
 
-  if (!agency) {
-    console.error(`Agency ${agencySlug} not found`)
-    return
-  }
-
-  console.log(`\nProcessing agency: ${agency.name}`)
-  
-  for (const title of agency.titles) {
-    if (progress.completed.includes(title.id)) {
-      continue
+    if (!dbAgency) {
+      console.error(`Agency ${agencyId} not found after creation`)
+      return
     }
 
-    try {
-      const content = await fetchTitleContent(title.number)
-      if (!content) {
-        console.log(`No content found for title ${title.number}, skipping`)
+    console.log(`\nProcessing agency: ${dbAgency.name}`)
+  
+    for (const title of dbAgency.titles) {
+      if (progress.completed.includes(title.id)) {
         continue
       }
 
-      const result = await processTitle(
-        { 
-          number: title.number,
-          name: title.name,
-          type: 'CFR',
-          chapter_count: 0,
-          last_updated: new Date().toISOString(),
-          chapters: []
-        },
-        agency.id,
-        content
-      )
+      try {
+        const content = await fetchTitleContent(title.number)
+        if (!content) {
+          console.log(`No content found for title ${title.number}, skipping`)
+          continue
+        }
 
-      if (result.success) {
-        progress.completed.push(title.id)
-        await saveCheckpoint({
-          lastAgencyId: agencySlug,
-          lastTitleNumber: title.number,
-          timestamp: new Date(),
-          progress: {
-            agenciesProcessed: progress.current,
-            titlesProcessed: progress.completed.length
-          }
-        })
-      } else {
+        const result = await processTitle(
+          { 
+            number: title.number,
+            name: title.name,
+            type: 'CFR',
+            chapter_count: 0,
+            last_updated: new Date().toISOString(),
+            chapters: []
+          },
+          agencyId,
+          content
+        )
+
+        if (result.success) {
+          progress.completed.push(title.id)
+          await saveCheckpoint({
+            lastAgencyId: agency.slug,
+            lastTitleNumber: title.number,
+            timestamp: new Date(),
+            progress: {
+              agenciesProcessed: progress.current,
+              titlesProcessed: progress.completed.length
+            }
+          })
+        } else {
+          progress.failed.push(title.id)
+        }
+
+        console.log(`Title ${title.number}: ${result.success ? 'Success' : 'Failed'}`)
+        console.log(`Progress: ${formatProgress(progress.completed.length, progress.total)}`)
+      } catch (error) {
+        console.error(`Error processing title ${title.number}:`, error)
         progress.failed.push(title.id)
       }
-
-      console.log(`Title ${title.number}: ${result.success ? 'Success' : 'Failed'}`)
-      console.log(`Progress: ${formatProgress(progress.completed.length, progress.total)}`)
-    } catch (error) {
-      console.error(`Error processing title ${title.number}:`, error)
-      progress.failed.push(title.id)
     }
+  } catch (error) {
+    console.error(`Error processing agency ${agency.name}:`, error)
+    throw error
   }
 }
 
@@ -101,7 +109,7 @@ export async function ingest() {
 
     // Process each agency
     for (const agency of agencies) {
-      await processAgency(agency.slug, progress)
+      await processAgencyData(agency, progress)
       progress.current++
     }
 
