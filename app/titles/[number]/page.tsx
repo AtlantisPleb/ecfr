@@ -5,43 +5,42 @@ import { VersionTimeline } from './version-timeline'
 import { StructureTree } from './structure-tree'
 import { MetricsDashboard } from './metrics-dashboard'
 import { ReferencesList } from './references-list'
-import { TextMetrics } from '@prisma/client'
+import { Agency, Change, Citation, Reference, TextMetrics, Version } from '@prisma/client'
 
-type VersionWithRelations = {
+type VersionWithRelations = Version & {
+  changes: Change[]
+  citations: Citation[]
+  textMetrics: TextMetrics[]
+  sourceRefs: Reference[]
+  targetRefs: Reference[]
+}
+
+type TitleWithRelations = {
   id: string
-  titleId: string
-  content: string
-  wordCount: number
-  amendment_date: Date
-  effective_date: Date | null
-  published_date: Date | null
-  authority: string | null
-  source: string | null
-  createdAt: Date
-  updatedAt: Date
-  changes: {
+  number: number
+  name: string
+  type: string
+  agencies: Agency[]
+  versions: VersionWithRelations[]
+  chapters: {
     id: string
-    description: string
-    effective_date: Date | null
-  }[]
-  citations: {
-    id: string
-    volume: number
-    page: number
-    date: Date
-    type: string
-    url: string | null
-  }[]
-  textMetrics: TextMetrics | null
-  sourceRefs: {
-    id: string
-    context: string
-    type: string
-  }[]
-  targetRefs: {
-    id: string
-    context: string
-    type: string
+    number: number
+    name: string
+    parts: {
+      id: string
+      number: number
+      name: string
+      subparts: {
+        id: string
+        name: string
+        sections: {
+          id: string
+          number: string
+          name: string
+          content: string
+        }[]
+      }[]
+    }[]
   }[]
 }
 
@@ -56,38 +55,11 @@ export default async function TitlePage({
       agencies: true,
       versions: {
         include: {
-          changes: {
-            select: {
-              id: true,
-              description: true,
-              effective_date: true
-            }
-          },
-          citations: {
-            select: {
-              id: true,
-              volume: true,
-              page: true,
-              date: true,
-              type: true,
-              url: true
-            }
-          },
+          changes: true,
+          citations: true,
           textMetrics: true,
-          sourceRefs: {
-            select: {
-              id: true,
-              context: true,
-              type: true
-            }
-          },
-          targetRefs: {
-            select: {
-              id: true,
-              context: true,
-              type: true
-            }
-          }
+          sourceRefs: true,
+          targetRefs: true
         },
         orderBy: {
           amendment_date: 'desc'
@@ -107,13 +79,13 @@ export default async function TitlePage({
         }
       }
     }
-  })
+  }) as TitleWithRelations
 
   if (!title) {
     notFound()
   }
 
-  const latestVersion = title.versions[0] as VersionWithRelations
+  const latestVersion = title.versions[0]
   const wordCount = latestVersion?.wordCount ?? 0
   const totalChapters = title.chapters.length
   const totalParts = title.chapters.reduce((acc, chapter) => acc + chapter.parts.length, 0)
@@ -157,7 +129,7 @@ export default async function TitlePage({
         {/* Version Timeline */}
         <div className="bg-white/30 p-6 rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold mb-4">Version History</h2>
-          <VersionTimeline versions={title.versions as VersionWithRelations[]} />
+          <VersionTimeline versions={title.versions} />
         </div>
 
         {/* Structure Tree */}
@@ -172,7 +144,7 @@ export default async function TitlePage({
           <MetricsDashboard
             wordCounts={title.versions.map(v => ({
               date: v.amendment_date,
-              count: v.wordCount ?? 0
+              count: v.wordCount
             }))}
             changes={title.versions.map(v => ({
               date: v.amendment_date,
