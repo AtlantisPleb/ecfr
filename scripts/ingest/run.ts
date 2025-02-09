@@ -2,7 +2,7 @@ try {
   console.log('Starting script...');
   
   // Dynamic import because we're using ES modules
-  import('./index.js').catch(error => {
+  import('./index.ts').catch(error => {
     console.error('=== IMPORT ERROR ===');
     console.error(error);
     if (error instanceof Error) {
