@@ -3,7 +3,7 @@ import { fetchAgencies, fetchTitles, fetchTitleContent } from './api'
 import { processTitle } from './processors/titleProcessor'
 import { processAgency } from './processors/agencyProcessor'
 import { saveCheckpoint, loadCheckpoint } from './checkpoint'
-import { ProcessingProgress, ECFRAgency, ECFRTitle } from './types'
+import { ProcessingProgress, ECFRAgency, ECFRTitle, IngestionOptions } from './types'
 
 const prisma = new PrismaClient()
 
@@ -17,7 +17,12 @@ function formatProgress(current: number, total: number): string {
   return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
 
-async function processAgencyData(agency: ECFRAgency, titles: ECFRTitle[], progress: ProcessingProgress) {
+async function processAgencyData(
+  agency: ECFRAgency, 
+  titles: ECFRTitle[], 
+  progress: ProcessingProgress,
+  options: IngestionOptions
+) {
   try {
     console.log('\n========================================')
     console.log(`Processing agency: ${agency.name}`)
@@ -58,11 +63,51 @@ async function processAgencyData(agency: ECFRAgency, titles: ECFRTitle[], progre
         console.log(`\n----------------------------------------`)
         console.log(`Processing Title ${title.number}: ${title.name}`)
         
+        // Skip content fetching if we're only processing titles
+        if (options.depth === 'titles') {
+          const result = await processTitle(title, agencyId, null)
+          if (result.success) {
+            progress.completed.push(titleKey)
+            await saveCheckpoint({
+              lastAgencyId: agency.slug,
+              lastTitleNumber: title.number,
+              timestamp: new Date(),
+              progress: {
+                agenciesProcessed: progress.current,
+                titlesProcessed: progress.completed.length
+              }
+            })
+            console.log(`\nTitle ${title.number} processed successfully`)
+            console.log('Title record:', result.data)
+          } else {
+            progress.failed.push(titleKey)
+            console.error(`Failed to process title ${title.number}:`, result.error)
+          }
+          continue
+        }
+        
         console.log('Fetching title content...')
         const content = await fetchTitleContent(title.number)
         if (!content) {
           console.log(`No content found for title ${title.number}, skipping`)
           continue
+        }
+
+        // Adjust content based on depth option
+        if (options.depth !== 'full') {
+          console.log(`Limiting content to ${options.depth} level`)
+          content.structure.chapters = content.structure.chapters.map(chapter => {
+            if (options.depth === 'chapters') {
+              return { ...chapter, parts: [] }
+            }
+            if (options.depth === 'parts') {
+              return {
+                ...chapter,
+                parts: chapter.parts.map(part => ({ ...part, subparts: [] }))
+              }
+            }
+            return chapter
+          })
         }
 
         console.log('Content retrieved, processing...')
@@ -110,8 +155,14 @@ async function processAgencyData(agency: ECFRAgency, titles: ECFRTitle[], progre
   }
 }
 
-export async function ingest() {
+export async function ingest(options: IngestionOptions = {}) {
   console.log('Starting eCFR ingestion...')
+  console.log('Options:', {
+    depth: options.depth || 'full',
+    skipHierarchy: options.skipHierarchy || false,
+    agencySlug: options.agencySlug || 'all',
+    batchSize: options.batchSize || 'unlimited'
+  })
 
   // Load checkpoint if exists
   const checkpoint = await loadCheckpoint()
@@ -130,15 +181,24 @@ export async function ingest() {
       fetchTitles()
     ])
 
+    // Filter agencies if agencySlug is provided
+    let filteredAgencies = agencies
+    if (options.agencySlug) {
+      filteredAgencies = agencies.filter(a => a.slug === options.agencySlug)
+      if (filteredAgencies.length === 0) {
+        throw new Error(`No agency found with slug: ${options.agencySlug}`)
+      }
+    }
+
     // Log agency statistics
-    const agenciesWithRefs = agencies.filter(a => a.cfr_references?.length > 0)
+    const agenciesWithRefs = filteredAgencies.filter(a => a.cfr_references?.length > 0)
     console.log('\nAgency Statistics:')
-    console.log(`- Total agencies: ${agencies.length}`)
+    console.log(`- Total agencies: ${filteredAgencies.length}`)
     console.log(`- Agencies with CFR references: ${agenciesWithRefs.length}`)
-    console.log(`- Agencies without references: ${agencies.length - agenciesWithRefs.length}`)
+    console.log(`- Agencies without references: ${filteredAgencies.length - agenciesWithRefs.length}`)
 
     // Calculate total number of agency-title relationships
-    const totalRelationships = agencies.reduce((sum, agency) => 
+    const totalRelationships = filteredAgencies.reduce((sum, agency) => 
       sum + (agency.cfr_references?.length || 0), 0
     )
     progress.total = totalRelationships
@@ -148,19 +208,19 @@ export async function ingest() {
     console.log(`- Total agency-title relationships to process: ${totalRelationships}`)
 
     // Process each agency and its titles
-    for (const agency of agencies) {
-      await processAgencyData(agency, titles, progress)
+    for (const agency of filteredAgencies) {
+      await processAgencyData(agency, titles, progress, options)
       progress.current++
 
       // Save overall progress
-      console.log(`\nAgency Progress: ${formatProgress(progress.current, agencies.length)}`)
+      console.log(`\nAgency Progress: ${formatProgress(progress.current, filteredAgencies.length)}`)
     }
 
     console.log('\n========================================')
     console.log('Ingestion complete!')
     console.log('Final Statistics:')
     console.log(`- Processed ${progress.completed.length}/${totalRelationships} agency-title relationships`)
-    console.log(`- Processed ${progress.current}/${agencies.length} agencies`)
+    console.log(`- Processed ${progress.current}/${filteredAgencies.length} agencies`)
     
     if (progress.failed.length > 0) {
       console.log(`\nFailed Relationships (${progress.failed.length}):`)
