@@ -16,14 +16,14 @@ function formatProgress(current: number, total: number): string {
   return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
 
-async function processAgency(agencyId: string, progress: ProcessingProgress) {
+async function processAgency(agencySlug: string, progress: ProcessingProgress) {
   const agency = await prisma.agency.findUnique({
-    where: { id: agencyId },
+    where: { slug: agencySlug },
     include: { titles: true }
   })
 
   if (!agency) {
-    console.error(`Agency ${agencyId} not found`)
+    console.error(`Agency ${agencySlug} not found`)
     return
   }
 
@@ -50,14 +50,14 @@ async function processAgency(agencyId: string, progress: ProcessingProgress) {
           last_updated: new Date().toISOString(),
           chapters: []
         },
-        agencyId,
+        agency.id,
         content
       )
 
       if (result.success) {
         progress.completed.push(title.id)
         await saveCheckpoint({
-          lastAgencyId: agencyId,
+          lastAgencyId: agencySlug,
           lastTitleNumber: title.number,
           timestamp: new Date(),
           progress: {
@@ -101,7 +101,7 @@ export async function ingest() {
 
     // Process each agency
     for (const agency of agencies) {
-      await processAgency(agency.id, progress)
+      await processAgency(agency.slug, progress)
       progress.current++
     }
 
