@@ -90,28 +90,75 @@ model Section {
   updatedAt   DateTime  @updatedAt
 }
 
+// Store all version metadata in main Version table
 model Version {
-  id           String        @id @default(cuid())
-  titleId      String
-  title        Title         @relation(fields: [titleId], references: [id])
-  content      String        @db.Text
-  wordCount    Int
-  date         DateTime
-  changes      Change[]
-  textMetrics  TextMetrics[]
-  sourceRefs   Reference[]   @relation("SourceReferences")
-  targetRefs   Reference[]   @relation("TargetReferences")
-  createdAt    DateTime      @default(now())
+  id              String        @id @default(cuid())
+  titleId         String
+  title           Title         @relation(fields: [titleId], references: [id])
+  content         String        @db.Text
+  wordCount       Int
+  
+  // Core version dates
+  amendment_date  DateTime      // When changes take effect
+  effective_date  DateTime?     // Official effective date if different
+  published_date  DateTime?     // When published in Federal Register
+  
+  // Version metadata
+  authority       String?       @db.Text  // Legal authority for changes
+  source          String?       // Source of changes (e.g., "Federal Register")
+  
+  // Related data
+  changes         Change[]      // Specific changes in this version
+  citations       Citation[]    // Federal Register citations
+  textMetrics     TextMetrics[]
+  sourceRefs      Reference[]   @relation("SourceReferences")
+  targetRefs      Reference[]   @relation("TargetReferences")
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+// Separate table for Federal Register citations to store full metadata
+model Citation {
+  id              String    @id @default(cuid())
+  versionId       String
+  version         Version   @relation(fields: [versionId], references: [id])
+  
+  // Citation details
+  volume          Int       // Federal Register volume
+  page            Int       // Starting page number
+  date            DateTime  // Publication date
+  type            String    // e.g., "Rule", "Proposed Rule", "Notice"
+  url             String?   // Link to Federal Register document
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([volume, page])
 }
 
 model Change {
-  id          String      @id @default(cuid())
-  versionId   String
-  version     Version     @relation(fields: [versionId], references: [id])
-  type        String      // ADD, MODIFY, DELETE
-  section     String      // affected section
-  description String
-  createdAt   DateTime    @default(now())
+  id              String    @id @default(cuid())
+  versionId       String
+  version         Version   @relation(fields: [versionId], references: [id])
+  
+  // Change details
+  type            String    // ADD, MODIFY, DELETE
+  section         String    // affected section number/id
+  description     String    // Description of changes
+  
+  // Additional metadata
+  amendment_part  String?   // Specific part being amended
+  effective_date  DateTime? // If different from version effective date
+  url             String?   // Link to change documentation
+  
+  // Federal Register citation for this specific change
+  fr_volume       Int?      // Federal Register volume
+  fr_page         Int?      // Federal Register page
+  fr_date         DateTime? // Federal Register publication date
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model WordCount {
