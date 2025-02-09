@@ -1,15 +1,18 @@
 import { PrismaClient } from '@prisma/client'
 import { fetchAgencies, fetchTitles, fetchTitleContent } from './api.js'
-import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint.js'
+import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle, formatProgress } from './checkpoint.js'
 import { ECFRAgency, ECFRTitle } from './types.js'
 
 const prisma = new PrismaClient()
 
 async function processTitle(
   title: ECFRTitle,
-  agencyId: string
+  agencyId: string,
+  totalTitles: number,
+  processedTitles: number
 ): Promise<void> {
-  console.log(`Processing title ${title.number}: ${title.name}`)
+  console.log(`\nProcessing title ${title.number}: ${title.name}`)
+  console.log(`Progress: ${formatProgress(processedTitles + 1, totalTitles)}`)
   
   try {
     const { content, wordCount } = await fetchTitleContent(title.number)
@@ -79,9 +82,14 @@ async function processTitle(
 async function processAgency(
   agency: ECFRAgency,
   titles: ECFRTitle[],
-  checkpoint: Awaited<ReturnType<typeof loadCheckpoint>>
+  checkpoint: Awaited<ReturnType<typeof loadCheckpoint>>,
+  totalAgencies: number,
+  processedAgencies: number,
+  totalTitles: number,
+  processedTitles: number
 ): Promise<void> {
-  console.log(`Processing agency: ${agency.name}`)
+  console.log(`\nProcessing agency: ${agency.name}`)
+  console.log(`Agency Progress: ${formatProgress(processedAgencies + 1, totalAgencies)}`)
 
   try {
     // Create or update agency
@@ -99,21 +107,26 @@ async function processAgency(
     // Process each title for this agency
     for (const chapter of agency.chapters) {
       const title = titles.find(t => t.number === chapter.title)
-      if (!title) continue
-
-      if (await shouldSkipTitle(title.number, checkpoint)) {
-        console.log(`Skipping already processed title ${title.number}`)
+      if (!title) {
+        console.log(`Title ${chapter.title} not found, skipping`)
         continue
       }
 
-      await processTitle(title, dbAgency.id)
+      if (await shouldSkipTitle(title.number, checkpoint)) {
+        console.log(`Skipping already processed title ${title.number}`)
+        processedTitles++
+        continue
+      }
+
+      await processTitle(title, dbAgency.id, totalTitles, processedTitles)
+      processedTitles++
       
       await saveCheckpoint({
         lastAgencyId: agency.id,
         lastTitleNumber: title.number,
         progress: {
-          agenciesProcessed: checkpoint?.progress.agenciesProcessed || 0,
-          titlesProcessed: (checkpoint?.progress.titlesProcessed || 0) + 1
+          agenciesProcessed: processedAgencies,
+          titlesProcessed: processedTitles
         }
       })
     }
@@ -137,26 +150,48 @@ async function ingestECFR() {
 
     console.log(`Found ${agencies.length} agencies and ${titles.length} titles`)
 
+    let processedAgencies = checkpoint?.progress.agenciesProcessed || 0
+    let processedTitles = checkpoint?.progress.titlesProcessed || 0
+    const totalAgencies = agencies.length
+    const totalTitles = titles.length
+
     for (const agency of agencies) {
-      if (await shouldSkipAgency(agency.id, checkpoint, prisma)) {
-        console.log(`Skipping already processed agency ${agency.name}`)
+      if (!agency.id) {
+        console.warn('Agency missing ID:', agency)
         continue
       }
 
-      await processAgency(agency, titles, checkpoint)
+      if (await shouldSkipAgency(agency.id, checkpoint, prisma)) {
+        console.log(`Skipping already processed agency ${agency.name}`)
+        processedAgencies++
+        continue
+      }
+
+      await processAgency(
+        agency, 
+        titles, 
+        checkpoint,
+        totalAgencies,
+        processedAgencies,
+        totalTitles,
+        processedTitles
+      )
+      
+      processedAgencies++
       
       // Update checkpoint after each agency
       await saveCheckpoint({
         lastAgencyId: agency.id,
         lastTitleNumber: null,
         progress: {
-          agenciesProcessed: (checkpoint?.progress.agenciesProcessed || 0) + 1,
-          titlesProcessed: checkpoint?.progress.titlesProcessed || 0
+          agenciesProcessed: processedAgencies,
+          titlesProcessed: processedTitles
         }
       })
     }
 
-    console.log('eCFR ingestion completed successfully')
+    console.log('\neCFR ingestion completed successfully')
+    console.log(`Processed ${processedAgencies} agencies and ${processedTitles} titles`)
   } catch (error) {
     console.error('Error during ingestion:', error)
     process.exit(1)
