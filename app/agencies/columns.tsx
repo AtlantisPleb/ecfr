@@ -35,8 +35,19 @@ export const columns: ColumnDef<AgencyWithRelations>[] = [
     },
   },
   {
-    accessorKey: "wordCounts",
-    header: "Word Count",
+    id: "wordCount",
+    accessorFn: (row) => row.wordCounts[0]?.count ?? 0,
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Word Count
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
     cell: ({ row }) => {
       const wordCounts = row.original.wordCounts
       if (wordCounts.length === 0) return "N/A"
