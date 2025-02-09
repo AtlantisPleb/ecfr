@@ -1,8 +1,12 @@
 import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
 import { RateLimiter } from './rateLimiter.js'
 
-const ADMIN_BASE_URL = 'https://www.ecfr.gov/api/admin/v1'
-const VERSIONER_BASE_URL = 'https://www.ecfr.gov/api/versioner/v1'
+const BASE_URL = 'https://www.ecfr.gov'
+const API_HEADERS = {
+  'Accept': 'application/json, application/xml',
+  'User-Agent': 'ecfr-data-ingest/1.0',
+}
+
 const rateLimiter = new RateLimiter()
 
 class APIError extends Error {
@@ -19,12 +23,16 @@ class APIError extends Error {
 async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
   let retryCount = 0
   let lastError: Error | null = null
+  const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
 
   while (retryCount < maxRetries) {
     try {
       await rateLimiter.waitForNext()
-      console.log(`Fetching ${url}`)
-      const response = await fetch(url)
+      console.log(`Fetching ${fullUrl}`)
+      const response = await fetch(fullUrl, {
+        headers: API_HEADERS,
+        redirect: 'follow'
+      })
       
       // Log response details
       console.log(`Response status: ${response.status}`)
@@ -41,6 +49,9 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
         if (response.status === 503) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
           console.log(`Service unavailable, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+          // Log the response body for 503 errors
+          const text = await response.text()
+          console.log('503 response body:', text)
           await new Promise(resolve => setTimeout(resolve, delay))
           retryCount++
           continue
@@ -86,7 +97,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
       }
       retryCount++
       const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
-      console.log(`Error fetching ${url}, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+      console.log(`Error fetching ${fullUrl}, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
@@ -97,7 +108,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
 export async function fetchAgencies(): Promise<ECFRAgency[]> {
   try {
     console.log('Fetching agencies list...')
-    const data = await fetchWithRetry(`${ADMIN_BASE_URL}/agencies.json`)
+    const data = await fetchWithRetry('/api/admin/v1/agencies.json')
     console.log('Raw agencies response:', JSON.stringify(data, null, 2))
     return data.agencies || []
   } catch (error) {
@@ -109,8 +120,7 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
-    console.log(`URL: ${VERSIONER_BASE_URL}/titles.json`)
-    const data = await fetchWithRetry(`${VERSIONER_BASE_URL}/titles.json`)
+    const data = await fetchWithRetry('/api/versioner/v1/structure/titles.json')
     console.log('Raw titles response:', JSON.stringify(data, null, 2))
     if (!data.titles) {
       console.error('No titles array in response:', data)
@@ -124,7 +134,7 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 }
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
-  const url = `${VERSIONER_BASE_URL}/full/${date}/title-${titleNumber}.xml`
+  const url = `/api/versioner/v1/structure/${date}/title-${titleNumber}.json`
   console.log(`Fetching content for Title ${titleNumber}...`)
   console.log(`URL: ${url}`)
   
@@ -135,7 +145,10 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
     while (retryCount < maxRetries) {
       try {
         await rateLimiter.waitForNext()
-        const response = await fetch(url)
+        const response = await fetch(`${BASE_URL}${url}`, {
+          headers: API_HEADERS,
+          redirect: 'follow'
+        })
         
         console.log(`Title ${titleNumber} response status:`, response.status)
         console.log(`Title ${titleNumber} response headers:`, Object.fromEntries(response.headers.entries()))
@@ -152,6 +165,9 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
           if (response.status === 503) {
             const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
             console.log(`Service unavailable, retrying in ${delay/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`)
+            // Log the response body for 503 errors
+            const text = await response.text()
+            console.log('503 response body:', text)
             await new Promise(resolve => setTimeout(resolve, delay))
             retryCount++
             continue
@@ -162,12 +178,14 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
-        const content = await response.text()
-        console.log(`Title ${titleNumber} content length:`, content.length)
-        console.log(`Title ${titleNumber} content preview:`, content.slice(0, 200))
+        const data = await response.json()
+        console.log(`Title ${titleNumber} data:`, JSON.stringify(data, null, 2))
         
+        // Extract content from the structure response
+        const content = JSON.stringify(data)
         const wordCount = content
-          .replace(/<[^>]*>/g, ' ') // Remove XML tags
+          .replace(/"[^"]*"/g, ' ') // Remove JSON strings
+          .replace(/[{}\[\],]/g, ' ') // Remove JSON syntax
           .replace(/\s+/g, ' ') // Normalize whitespace
           .trim()
           .split(/\s+/)
