@@ -14,7 +14,9 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
-    "ingest": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/ingest/index.ts"
+    "ingest": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node scripts/ingest/index.ts",
+    "studio": "prisma studio",
+    "t": "tsc --noEmit"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
