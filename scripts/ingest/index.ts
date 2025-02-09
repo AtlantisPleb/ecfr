@@ -3,7 +3,7 @@ import { fetchAgencies, fetchTitles, fetchTitleContent } from './api'
 import { processTitle } from './processors/titleProcessor'
 import { processAgency } from './processors/agencyProcessor'
 import { saveCheckpoint, loadCheckpoint } from './checkpoint'
-import { ProcessingProgress } from './types'
+import { ProcessingProgress, ECFRAgency, ECFRTitle } from './types'
 
 const prisma = new PrismaClient()
 
@@ -17,49 +17,37 @@ function formatProgress(current: number, total: number): string {
   return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
 
-async function processAgencyData(agency: any, progress: ProcessingProgress) {
+async function processAgencyData(agency: ECFRAgency, titles: ECFRTitle[], progress: ProcessingProgress) {
   try {
     // Process agency and get its ID
     const agencyId = await processAgency(agency)
-    const dbAgency = await prisma.agency.findUnique({
-      where: { id: agencyId },
-      include: { titles: true }
-    })
 
-    if (!dbAgency) {
-      console.error(`Agency ${agencyId} not found after creation`)
-      return
-    }
+    // Process all titles referenced by this agency
+    const agencyTitles = titles.filter(title => 
+      agency.cfr_references?.some(ref => ref.title === title.number)
+    )
 
-    console.log(`\nProcessing agency: ${dbAgency.name}`)
-  
-    for (const title of dbAgency.titles) {
-      if (progress.completed.includes(title.id)) {
+    console.log(`\nProcessing agency: ${agency.name} (${agencyTitles.length} titles)`)
+
+    for (const title of agencyTitles) {
+      const titleKey = `${agency.slug}-${title.number}`
+      if (progress.completed.includes(titleKey)) {
         continue
       }
 
       try {
+        console.log(`\nFetching content for Title ${title.number}`)
         const content = await fetchTitleContent(title.number)
         if (!content) {
           console.log(`No content found for title ${title.number}, skipping`)
           continue
         }
 
-        const result = await processTitle(
-          { 
-            number: title.number,
-            name: title.name,
-            type: 'CFR',
-            chapter_count: 0,
-            last_updated: new Date().toISOString(),
-            chapters: []
-          },
-          agencyId,
-          content
-        )
+        console.log(`Processing Title ${title.number}: ${title.name}`)
+        const result = await processTitle(title, agencyId, content)
 
         if (result.success) {
-          progress.completed.push(title.id)
+          progress.completed.push(titleKey)
           await saveCheckpoint({
             lastAgencyId: agency.slug,
             lastTitleNumber: title.number,
@@ -69,15 +57,16 @@ async function processAgencyData(agency: any, progress: ProcessingProgress) {
               titlesProcessed: progress.completed.length
             }
           })
+          console.log(`Title ${title.number} processed successfully`)
         } else {
-          progress.failed.push(title.id)
+          progress.failed.push(titleKey)
+          console.error(`Failed to process title ${title.number}:`, result.error)
         }
 
-        console.log(`Title ${title.number}: ${result.success ? 'Success' : 'Failed'}`)
         console.log(`Progress: ${formatProgress(progress.completed.length, progress.total)}`)
       } catch (error) {
         console.error(`Error processing title ${title.number}:`, error)
-        progress.failed.push(title.id)
+        progress.failed.push(titleKey)
       }
     }
   } catch (error) {
@@ -99,24 +88,36 @@ export async function ingest() {
   }
 
   try {
-    // Fetch agencies and titles
+    // Fetch all agencies and titles first
+    console.log('Fetching agencies and titles...')
     const [agencies, titles] = await Promise.all([
       fetchAgencies(),
       fetchTitles()
     ])
 
-    console.log(`Found ${agencies.length} agencies and ${titles.length} titles`)
+    // Calculate total number of agency-title relationships
+    const totalRelationships = agencies.reduce((sum, agency) => 
+      sum + (agency.cfr_references?.length || 0), 0
+    )
+    progress.total = totalRelationships
 
-    // Process each agency
+    console.log(`Found ${agencies.length} agencies and ${titles.length} titles`)
+    console.log(`Total agency-title relationships to process: ${totalRelationships}`)
+
+    // Process each agency and its titles
     for (const agency of agencies) {
-      await processAgencyData(agency, progress)
+      await processAgencyData(agency, titles, progress)
       progress.current++
+
+      // Save overall progress
+      console.log(`\nAgency Progress: ${formatProgress(progress.current, agencies.length)}`)
     }
 
     console.log('\nIngestion complete!')
+    console.log(`Processed ${progress.completed.length} agency-title relationships`)
     if (progress.failed.length > 0) {
-      console.log(`Failed to process ${progress.failed.length} titles:`)
-      console.log(progress.failed.join(', '))
+      console.log(`Failed to process ${progress.failed.length} relationships:`)
+      console.log(progress.failed.join('\n'))
     }
   } catch (error) {
     console.error('Fatal error during ingestion:', error)
