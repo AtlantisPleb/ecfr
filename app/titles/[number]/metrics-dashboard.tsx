@@ -1,8 +1,9 @@
 "use client"
 
-import { Chart } from '@/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
+import { Line, Bar, LineChart, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 
 interface MetricsDashboardProps {
   wordCounts: Array<{
@@ -27,8 +28,17 @@ export function MetricsDashboard({
 }: MetricsDashboardProps) {
   // Sort data by date
   const sortedWordCounts = [...wordCounts].sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map(d => ({ date: d.date.toLocaleDateString(), count: d.count }))
+  
   const sortedChanges = [...changes].sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map(d => ({ date: d.date.toLocaleDateString(), count: d.count }))
+  
   const sortedRefs = [...references].sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map(d => ({ 
+      date: d.date.toLocaleDateString(), 
+      incoming: d.incoming,
+      outgoing: d.outgoing
+    }))
 
   return (
     <Tabs defaultValue="wordCount" className="w-full">
@@ -44,34 +54,24 @@ export function MetricsDashboard({
             <CardTitle>Word Count Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <Chart
-              type="line"
-              data={{
-                labels: sortedWordCounts.map(d => d.date.toLocaleDateString()),
-                datasets: [{
-                  label: 'Word Count',
-                  data: sortedWordCounts.map(d => d.count),
-                  borderColor: 'rgb(59, 130, 246)',
-                  tension: 0.1
-                }]
-              }}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: 'top' as const,
-                  },
-                  title: {
-                    display: false
-                  }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true
-                  }
+            <ChartContainer
+              className="h-[300px]"
+              config={{
+                count: {
+                  color: "rgb(59, 130, 246)",
+                  label: "Word Count"
                 }
               }}
-            />
+            >
+              <LineChart data={sortedWordCounts}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="count" stroke="rgb(59, 130, 246)" />
+              </LineChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </TabsContent>
@@ -82,35 +82,24 @@ export function MetricsDashboard({
             <CardTitle>Changes Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <Chart
-              type="bar"
-              data={{
-                labels: sortedChanges.map(d => d.date.toLocaleDateString()),
-                datasets: [{
-                  label: 'Number of Changes',
-                  data: sortedChanges.map(d => d.count),
-                  backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                  borderColor: 'rgb(59, 130, 246)',
-                  borderWidth: 1
-                }]
-              }}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: 'top' as const,
-                  },
-                  title: {
-                    display: false
-                  }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true
-                  }
+            <ChartContainer
+              className="h-[300px]"
+              config={{
+                count: {
+                  color: "rgb(59, 130, 246)",
+                  label: "Number of Changes"
                 }
               }}
-            />
+            >
+              <BarChart data={sortedChanges}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill="rgb(59, 130, 246)" />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </TabsContent>
@@ -121,42 +110,29 @@ export function MetricsDashboard({
             <CardTitle>References Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <Chart
-              type="line"
-              data={{
-                labels: sortedRefs.map(d => d.date.toLocaleDateString()),
-                datasets: [
-                  {
-                    label: 'Incoming References',
-                    data: sortedRefs.map(d => d.incoming),
-                    borderColor: 'rgb(59, 130, 246)',
-                    tension: 0.1
-                  },
-                  {
-                    label: 'Outgoing References',
-                    data: sortedRefs.map(d => d.outgoing),
-                    borderColor: 'rgb(234, 88, 12)',
-                    tension: 0.1
-                  }
-                ]
-              }}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: 'top' as const,
-                  },
-                  title: {
-                    display: false
-                  }
+            <ChartContainer
+              className="h-[300px]"
+              config={{
+                incoming: {
+                  color: "rgb(59, 130, 246)",
+                  label: "Incoming References"
                 },
-                scales: {
-                  y: {
-                    beginAtZero: true
-                  }
+                outgoing: {
+                  color: "rgb(234, 88, 12)",
+                  label: "Outgoing References"
                 }
               }}
-            />
+            >
+              <LineChart data={sortedRefs}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="incoming" stroke="rgb(59, 130, 246)" />
+                <Line type="monotone" dataKey="outgoing" stroke="rgb(234, 88, 12)" />
+              </LineChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </TabsContent>
