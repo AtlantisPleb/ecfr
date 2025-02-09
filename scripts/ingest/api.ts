@@ -3,7 +3,7 @@ import { RateLimiter } from './rateLimiter.js'
 
 const BASE_URL = 'https://www.ecfr.gov'
 const API_HEADERS = {
-  'Accept': 'application/json, application/xml',
+  'Accept': 'application/json',
   'User-Agent': 'ecfr-data-ingest/1.0',
 }
 
@@ -77,9 +77,6 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
           console.log('Parsed JSON:', JSON.stringify(json, null, 2))
           return json
         } catch (e) {
-          if (contentType?.includes('application/xml') || contentType?.includes('text/xml')) {
-            return text // Return raw XML content
-          }
           console.error('Failed to parse response as JSON:', text.slice(0, 200) + '...')
           throw new Error('Invalid JSON response')
         }
@@ -135,17 +132,23 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'latest'): Promise<ProcessedContent | null> {
   try {
-    // First get the title metadata to get the latest date
-    const titleData = await fetchWithRetry(`/api/versioner/v1/titles.json`)
-    const titleInfo = titleData.titles?.find((t: any) => t.number === titleNumber)
-    if (!titleInfo || !titleInfo.latest_amended_on) {
-      console.log(`No latest version date found for title ${titleNumber}, skipping`)
+    // First get the versions info for this title
+    const versionsData = await fetchWithRetry(`/api/versioner/v1/versions/title-${titleNumber}.json`)
+    if (!versionsData || !versionsData.content_versions) {
+      console.log(`No versions data found for title ${titleNumber}, skipping`)
       return null
     }
 
-    const versionDate = titleInfo.latest_amended_on
-    const url = `/api/versioner/v1/full/${versionDate}/title-${titleNumber}.xml`
-    console.log(`Fetching content for Title ${titleNumber} version ${versionDate}...`)
+    // Get the latest version date from meta
+    const latestDate = versionsData.meta?.latest_amendment_date
+    if (!latestDate) {
+      console.log(`No valid version date found for title ${titleNumber}, skipping`)
+      return null
+    }
+
+    // Get the content using the structure endpoint
+    const url = `/api/versioner/v1/structure/${latestDate}/title-${titleNumber}.json`
+    console.log(`Fetching content for Title ${titleNumber} version ${latestDate}...`)
     console.log(`URL: ${url}`)
     
     let retryCount = 0
@@ -155,10 +158,7 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
       try {
         await rateLimiter.waitForNext()
         const response = await fetch(`${BASE_URL}${url}`, {
-          headers: {
-            ...API_HEADERS,
-            'Accept': 'application/xml'  // Specifically request XML for title content
-          },
+          headers: API_HEADERS,
           redirect: 'follow'
         })
         
@@ -194,8 +194,12 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
         console.log(`Title ${titleNumber} content length:`, content.length)
         console.log(`Title ${titleNumber} content preview:`, content.slice(0, 200))
         
-        const wordCount = content
-          .replace(/<[^>]*>/g, ' ') // Remove XML tags
+        // For JSON content, we'll count words in the text fields
+        const contentObj = JSON.parse(content)
+        const allText = JSON.stringify(contentObj, null, 2)
+        const wordCount = allText
+          .replace(/"[^"]*"/g, ' ') // Remove JSON strings
+          .replace(/[{}\[\],]/g, ' ') // Remove JSON syntax
           .replace(/\s+/g, ' ') // Normalize whitespace
           .trim()
           .split(/\s+/)
