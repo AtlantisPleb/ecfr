@@ -8,12 +8,14 @@ const prisma = new PrismaClient({
 })
 
 function formatProgress(current: number, total: number): string {
-  const percentage = Math.round((current / total) * 100)
+  // Ensure we don't exceed 100%
+  const adjustedCurrent = Math.min(current, total)
+  const percentage = Math.round((adjustedCurrent / total) * 100)
   const width = 50
-  const filled = Math.round((width * current) / total)
-  const empty = width - filled
+  const filled = Math.round((width * adjustedCurrent) / total)
+  const empty = Math.max(0, width - filled) // Ensure we don't get negative empty space
   const bar = '█'.repeat(filled) + '░'.repeat(empty)
-  return `${bar} ${percentage}% (${current}/${total})`
+  return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
 
 export async function main() {
@@ -108,7 +110,8 @@ export async function main() {
 
               console.log(`Processing Title ${title.number}: ${title.name}`)
               console.log(`Title Progress for ${agency.name}: ${formatProgress(agencyTitlesProcessed + 1, agencyTitlesTotal)}`)
-              console.log(`Overall Title Progress: ${formatProgress(processedTitles + 1, totalTitles)}`)
+              // Cap the overall title progress at total titles
+              console.log(`Overall Title Progress: ${formatProgress(Math.min(processedTitles + 1, totalTitles), totalTitles)}`)
 
               const result = await fetchTitleContent(title.number)
               if (!result) {
@@ -186,7 +189,7 @@ export async function main() {
                 lastTitleNumber: title.number,
                 progress: {
                   agenciesProcessed: processedAgencies,
-                  titlesProcessed: processedTitles
+                  titlesProcessed: Math.min(processedTitles, totalTitles)
                 }
               }).catch(error => {
                 console.error('Error saving checkpoint:', error)
@@ -207,7 +210,7 @@ export async function main() {
           lastTitleNumber: null,
           progress: {
             agenciesProcessed: processedAgencies,
-            titlesProcessed: processedTitles
+            titlesProcessed: Math.min(processedTitles, totalTitles)
           }
         }).catch(error => {
           console.error('Error saving agency checkpoint:', error)
@@ -220,7 +223,7 @@ export async function main() {
     }
 
     console.log('\neCFR ingestion completed successfully')
-    console.log(`Processed ${processedAgencies} agencies and ${processedTitles} titles`)
+    console.log(`Processed ${processedAgencies} agencies and ${Math.min(processedTitles, totalTitles)} titles`)
   } catch (error) {
     console.error('Fatal error during ingestion:', error)
     throw error
