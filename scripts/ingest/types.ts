@@ -134,3 +134,83 @@ export interface TitleProgress extends ProcessingProgress {
 export interface VersionProgress extends ProcessingProgress {
   currentVersion?: string;
 }
+
+// Analysis Types
+
+export interface TextMetricsData {
+  wordCount: number;
+  uniqueWords: number;
+  avgWordLength: number;
+  avgSentenceLen: number;
+}
+
+export interface ReferenceData {
+  targetId: string;
+  context: string;
+  type: 'INTERNAL' | 'EXTERNAL';
+}
+
+export interface WordStats {
+  total: number;
+  unique: number;
+  avgLength: number;
+}
+
+export interface SentenceStats {
+  count: number;
+  avgLength: number;
+}
+
+export interface ContentDiff {
+  added: string[];
+  modified: string[];
+  deleted: string[];
+  wordCounts: {
+    added: number;
+    modified: number;
+    deleted: number;
+  };
+}
+
+export interface ProcessedContent {
+  content: string;
+  wordCount: number;
+  textMetrics: TextMetricsData;
+  references: ReferenceData[];
+  structure: {
+    chapters: ProcessedChapter[];
+  };
+}
+
+export interface ProcessedChapter {
+  number: number;
+  name: string;
+  parts: ProcessedPart[];
+}
+
+export interface ProcessedPart {
+  number: number;
+  name: string;
+  subparts: ProcessedSubpart[];
+}
+
+export interface ProcessedSubpart {
+  name: string;
+  sections: ProcessedSection[];
+}
+
+export interface ProcessedSection {
+  number: string;
+  name: string;
+  content: string;
+}
+
+export interface CheckpointData {
+  lastAgencyId: string | null;
+  lastTitleNumber: number | null;
+  timestamp: Date;
+  progress: {
+    agenciesProcessed: number;
+    titlesProcessed: number;
+  };
+}
