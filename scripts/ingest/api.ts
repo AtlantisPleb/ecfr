@@ -181,18 +181,16 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
 }
 
 function countWords(obj: any): number {
-  let count = 0
-  
   if (typeof obj === 'string') {
     return obj.trim().split(/\s+/).length
   }
   
   if (Array.isArray(obj)) {
-    return obj.reduce((sum, item) => sum + countWords(item), 0)
+    return obj.reduce((sum: number, item: any) => sum + countWords(item), 0)
   }
   
   if (typeof obj === 'object' && obj !== null) {
-    return Object.values(obj).reduce((sum, value) => sum + countWords(value), 0)
+    return Object.values(obj).reduce((sum: number, value: any) => sum + countWords(value), 0)
   }
   
   return 0
