@@ -20,12 +20,11 @@ export async function ensureTitleExists(
   total: number
 ): Promise<void> {
   try {
-    process.stdout.write(`\\rProcessing title ${title.number}: ${title.name} - ${formatProgress(current, total)}`)
-    
     const existing = await prisma.title.findUnique({
       where: { number: title.number }
     })
 
+    let action = 'No changes'
     if (!existing) {
       await prisma.title.create({
         data: {
@@ -35,24 +34,19 @@ export async function ensureTitleExists(
           type: 'CFR'
         }
       })
-      process.stdout.write(` - Created`)
+      action = 'Created'
     } else if (existing.name !== title.name) {
       await prisma.title.update({
         where: { number: title.number },
         data: { name: title.name }
       })
-      process.stdout.write(` - Updated`)
-    } else {
-      process.stdout.write(` - No changes`)
+      action = 'Updated'
     }
 
-    // If this is the last title, add a newline
-    if (current === total) {
-      process.stdout.write('\\n')
-    }
+    console.log(`Processing title ${title.number}: ${title.name}`)
+    console.log(`Progress: ${formatProgress(current, total)}`)
+    console.log(`Status: ${action}\\n`)
   } catch (error) {
-    // Add newline before error for clean output
-    process.stdout.write('\\n')
     console.error(`Error ensuring title ${title.number} exists:`, error)
     throw error
   }
