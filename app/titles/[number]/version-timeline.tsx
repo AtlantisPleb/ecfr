@@ -3,7 +3,7 @@
 import { Version, Change, Citation } from '@prisma/client'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { timeAgo } from '@/lib/utils'
+import { format } from 'date-fns'
 
 type VersionWithRelations = Version & {
   changes: Change[]
@@ -35,8 +35,13 @@ export function VersionTimeline({ versions }: VersionTimelineProps) {
                     <div className="font-medium">
                       Version {versions.length - i}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {timeAgo(version.amendment_date)}
+                    <div className="text-sm text-gray-500 space-y-1">
+                      <div>
+                        Published: {version.published_date ? format(version.published_date, 'MMMM d, yyyy') : 'Not published'}
+                      </div>
+                      <div>
+                        Effective: {version.effective_date ? format(version.effective_date, 'MMMM d, yyyy') : format(version.amendment_date, 'MMMM d, yyyy')}
+                      </div>
                     </div>
                   </div>
                   <Button variant="outline" size="sm">
@@ -52,6 +57,11 @@ export function VersionTimeline({ versions }: VersionTimelineProps) {
                       {version.changes.map(change => (
                         <li key={change.id}>
                           • {change.description}
+                          {change.effective_date && change.effective_date !== version.effective_date && (
+                            <span className="text-xs text-gray-400 ml-2">
+                              (Effective: {format(change.effective_date, 'MMM d, yyyy')})
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -61,11 +71,22 @@ export function VersionTimeline({ versions }: VersionTimelineProps) {
                 {/* Citations */}
                 {version.citations.length > 0 && (
                   <div className="mt-4">
-                    <div className="text-sm font-medium mb-2">Citations:</div>
+                    <div className="text-sm font-medium mb-2">Federal Register Citations:</div>
                     <ul className="text-sm text-gray-600 space-y-1">
                       {version.citations.map(citation => (
                         <li key={citation.id}>
-                          • {citation.source}
+                          • {citation.volume} FR {citation.page} ({format(citation.date, 'MMM d, yyyy')})
+                          {citation.type && <span className="text-xs text-gray-400 ml-2">({citation.type})</span>}
+                          {citation.url && (
+                            <a 
+                              href={citation.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 hover:underline ml-2"
+                            >
+                              View
+                            </a>
+                          )}
                         </li>
                       ))}
                     </ul>
