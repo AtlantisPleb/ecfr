@@ -43,8 +43,20 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
         throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
       }
       
-      return await response.json()
+      const contentType = response.headers.get('content-type')
+      if (contentType?.includes('application/json')) {
+        return await response.json()
+      } else {
+        const text = await response.text()
+        try {
+          return JSON.parse(text)
+        } catch (e) {
+          console.error('Failed to parse response as JSON:', text.slice(0, 200) + '...')
+          throw new Error('Invalid JSON response')
+        }
+      }
     } catch (error) {
+      console.error('Error details:', error)
       if (error instanceof APIError && !error.shouldRetry) {
         throw error
       }
@@ -65,19 +77,36 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
 }
 
 export async function fetchAgencies(): Promise<ECFRAgency[]> {
-  console.log('Fetching agencies list...')
-  const data = await fetchWithRetry(`${BASE_URL}/agencies.json`)
-  return data.agencies
+  try {
+    console.log('Fetching agencies list...')
+    const data = await fetchWithRetry(`${BASE_URL}/agencies`)
+    if (!data || !Array.isArray(data.agencies)) {
+      console.error('Invalid agencies response:', data)
+      throw new Error('Invalid agencies response format')
+    }
+    return data.agencies
+  } catch (error) {
+    console.error('Error fetching agencies:', error)
+    throw error
+  }
 }
 
 export async function fetchTitles(): Promise<ECFRTitle[]> {
-  console.log('Fetching titles list...')
-  const data = await fetchWithRetry(`${BASE_URL}/titles.json`)
-  return data.titles
+  try {
+    console.log('Fetching titles list...')
+    const data = await fetchWithRetry(`${BASE_URL}/titles`)
+    if (!data || !Array.isArray(data.titles)) {
+      console.error('Invalid titles response:', data)
+      throw new Error('Invalid titles response format')
+    }
+    return data.titles
+  } catch (error) {
+    console.error('Error fetching titles:', error)
+    throw error
+  }
 }
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
-  // The correct format is /api/structured/title-{number}/{date}
   const url = `${BASE_URL}/structured/title-${titleNumber}/${date}`
   console.log(`Fetching content for Title ${titleNumber}...`)
   
@@ -106,11 +135,19 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
             retryCount++
             continue
           }
+          
+          const text = await response.text()
+          console.error(`Error response body:`, text)
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
         const data = await response.json()
-        const content = JSON.stringify(data) // Store the structured data as JSON
+        if (!data) {
+          console.error('Empty response for title', titleNumber)
+          return null
+        }
+
+        const content = JSON.stringify(data)
         const wordCount = countWords(data)
 
         console.log(`Successfully fetched Title ${titleNumber} (${wordCount} words)`)
@@ -119,6 +156,7 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
           wordCount
         }
       } catch (error) {
+        console.error(`Error details for title ${titleNumber}:`, error)
         if (error instanceof APIError && !error.shouldRetry) {
           throw error
         }
@@ -133,6 +171,7 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
       }
     }
   } catch (error) {
+    console.error(`Error fetching title ${titleNumber}:`, error)
     if (error instanceof APIError && error.status === 404) {
       return null
     }
