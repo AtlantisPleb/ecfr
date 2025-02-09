@@ -22,6 +22,7 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
   while (retryCount < maxRetries) {
     try {
       await rateLimiter.waitForNext()
+      console.log(`Fetching ${url}`)
       const response = await fetch(url)
       
       if (!response.ok) {
@@ -65,18 +66,19 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
 
 export async function fetchAgencies(): Promise<ECFRAgency[]> {
   console.log('Fetching agencies list...')
-  const data = await fetchWithRetry(`${BASE_URL}/admin/v1/agencies.json`)
+  const data = await fetchWithRetry(`${BASE_URL}/agencies.json`)
   return data.agencies
 }
 
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   console.log('Fetching titles list...')
-  const data = await fetchWithRetry(`${BASE_URL}/versioner/v1/titles.json`)
+  const data = await fetchWithRetry(`${BASE_URL}/titles.json`)
   return data.titles
 }
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
-  const url = `${BASE_URL}/versioner/v1/full/${date}/title-${titleNumber}.xml`
+  // The correct format is /api/structured/title-{number}/{date}
+  const url = `${BASE_URL}/structured/title-${titleNumber}/${date}`
   console.log(`Fetching content for Title ${titleNumber}...`)
   
   try {
@@ -107,13 +109,9 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
-        const content = await response.text()
-        const wordCount = content
-          .replace(/<[^>]*>/g, ' ') // Remove XML tags
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim()
-          .split(' ')
-          .length
+        const data = await response.json()
+        const content = JSON.stringify(data) // Store the structured data as JSON
+        const wordCount = countWords(data)
 
         console.log(`Successfully fetched Title ${titleNumber} (${wordCount} words)`)
         return {
@@ -142,4 +140,22 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
   }
 
   throw new Error('Max retries exceeded')
+}
+
+function countWords(obj: any): number {
+  let count = 0
+  
+  if (typeof obj === 'string') {
+    return obj.trim().split(/\s+/).length
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.reduce((sum, item) => sum + countWords(item), 0)
+  }
+  
+  if (typeof obj === 'object' && obj !== null) {
+    return Object.values(obj).reduce((sum, value) => sum + countWords(value), 0)
+  }
+  
+  return 0
 }
