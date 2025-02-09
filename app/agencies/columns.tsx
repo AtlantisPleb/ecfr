@@ -27,8 +27,19 @@ export const columns: ColumnDef<AgencyWithRelations>[] = [
     },
   },
   {
-    accessorKey: "titles",
-    header: "Titles",
+    id: "titleCount",
+    accessorFn: (row) => row.titles.length,
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Titles
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
     cell: ({ row }) => {
       const titles = row.original.titles
       return <div>{titles.length} titles</div>
@@ -56,7 +67,17 @@ export const columns: ColumnDef<AgencyWithRelations>[] = [
   },
   {
     accessorKey: "createdAt",
-    header: "Created",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Created
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
     cell: ({ row }) => {
       return <div>{timeAgo(row.original.createdAt)}</div>
     },
