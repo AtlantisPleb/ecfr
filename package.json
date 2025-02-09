@@ -1,6 +1,6 @@
 {
-  "name": "postgres-prisma",
-  "repository": "https://github.com/vercel/examples.git",
+  "name": "ecfr",
+  "repository": "https://github.com/AtlantisPleb/ecfr.git",
   "license": "MIT",
   "version": "0.0.0",
   "private": true,
@@ -13,8 +13,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
-    "studio": "prisma studio",
-    "t": "tsc --noEmit"
+    "ingest": "ts-node scripts/ingest/index.ts"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
