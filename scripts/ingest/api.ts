@@ -122,34 +122,35 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
   console.log('\nParsing structure from API response...')
   const chapters: ECFRChapter[] = []
 
-  if (!contentObj.children) {
-    console.log('No children array found in API response')
-    console.log('Response keys:', Object.keys(contentObj))
-    return { chapters }
-  }
+  // The root node is the title, its direct children are chapters
+  const chapterNodes = contentObj.children || []
+  console.log(`Found ${chapterNodes.length} top-level nodes`)
 
-  // Filter for chapter nodes
-  const chapterNodes = contentObj.children.filter(
-    (node: any) => node.label_level === 'chapter'
-  )
+  for (const node of chapterNodes) {
+    // Only process chapter nodes
+    if (!node.label?.toLowerCase().startsWith('chapter')) {
+      console.log(`Skipping non-chapter node: ${node.label}`)
+      continue
+    }
 
-  console.log(`Found ${chapterNodes.length} chapters in API response`)
-
-  for (const chapterNode of chapterNodes) {
-    console.log(`\nParsing Chapter ${chapterNode.label}`)
+    console.log(`\nParsing Chapter ${node.label}`)
     const chapter: ECFRChapter = {
-      number: parseInt(chapterNode.label.split(' ')[1]),
-      name: chapterNode.label_description || chapterNode.label,
+      number: parseInt(node.label.split(' ')[1]),
+      name: node.label_description || node.label,
       parts: []
     }
 
-    // Find part nodes in chapter's children
-    const partNodes = (chapterNode.children || []).filter(
-      (node: any) => node.label_level === 'part'
-    )
+    // Process parts within the chapter
+    const partNodes = node.children || []
+    console.log(`Found ${partNodes.length} nodes in chapter ${chapter.number}`)
 
-    console.log(`Found ${partNodes.length} parts in chapter ${chapter.number}`)
     for (const partNode of partNodes) {
+      // Only process part nodes
+      if (!partNode.label?.toLowerCase().startsWith('part')) {
+        console.log(`Skipping non-part node: ${partNode.label}`)
+        continue
+      }
+
       console.log(`Parsing Part ${partNode.label}`)
       const part: ECFRPart = {
         number: parseInt(partNode.label.split(' ')[1]),
@@ -157,29 +158,37 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
         subparts: []
       }
 
-      // Find subpart nodes in part's children
-      const subpartNodes = (partNode.children || []).filter(
-        (node: any) => node.label_level === 'subpart'
-      )
+      // Process subparts within the part
+      const subpartNodes = partNode.children || []
+      console.log(`Found ${subpartNodes.length} nodes in part ${part.number}`)
 
-      console.log(`Found ${subpartNodes.length} subparts in part ${part.number}`)
       for (const subpartNode of subpartNodes) {
+        // Only process subpart nodes
+        if (!subpartNode.label?.toLowerCase().startsWith('subpart')) {
+          console.log(`Skipping non-subpart node: ${subpartNode.label}`)
+          continue
+        }
+
         console.log(`Parsing Subpart: ${subpartNode.label}`)
         const subpart: ECFRSubpart = {
           name: subpartNode.label_description || subpartNode.label,
           sections: []
         }
 
-        // Find section nodes in subpart's children
-        const sectionNodes = (subpartNode.children || []).filter(
-          (node: any) => node.label_level === 'section'
-        )
+        // Process sections within the subpart
+        const sectionNodes = subpartNode.children || []
+        console.log(`Found ${sectionNodes.length} nodes in subpart ${subpart.name}`)
 
-        console.log(`Found ${sectionNodes.length} sections in subpart ${subpart.name}`)
         for (const sectionNode of sectionNodes) {
+          // Only process section nodes
+          if (!sectionNode.label?.toLowerCase().startsWith('§')) {
+            console.log(`Skipping non-section node: ${sectionNode.label}`)
+            continue
+          }
+
           console.log(`Parsing Section ${sectionNode.label}`)
           const section: ECFRSection = {
-            number: sectionNode.label.split(' ')[1],
+            number: sectionNode.label.replace('§', '').trim(),
             name: sectionNode.label_description || sectionNode.label,
             content: sectionNode.content || ''
           }
