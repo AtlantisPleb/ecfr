@@ -46,20 +46,45 @@ export async function processTitle(
     // Process hierarchy (chapters/parts/subparts/sections)
     await processHierarchy(titleRecord.id, content.structure)
 
-    // Process version
+    // Create version with content
     const versionResult = await processVersion(titleRecord.id, {
       amendment_date: new Date().toISOString(),
-      content: content.content,
-      wordCount: content.wordCount,
-      changes: []
+      effective_date: new Date().toISOString(),
+      published_date: new Date().toISOString(),
+      authority: 'Initial version',
+      source: 'eCFR API',
+      fr_citations: [],
+      changes: [{
+        type: 'ADD',
+        section: 'full',
+        description: 'Initial version'
+      }]
     })
 
     if (!versionResult.success) {
       throw new Error(versionResult.error)
     }
 
+    // Update version with content
+    await prisma.version.update({
+      where: { id: versionResult.data!.id },
+      data: {
+        content: content.content,
+        wordCount: content.wordCount
+      }
+    })
+
     // Process metrics
     await processMetrics(versionResult.data!.id, content)
+
+    // Create word count
+    await prisma.wordCount.create({
+      data: {
+        agencyId,
+        count: content.wordCount,
+        date: new Date()
+      }
+    })
 
     return {
       success: true,
