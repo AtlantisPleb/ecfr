@@ -1,12 +1,27 @@
 import { PrismaClient } from '@prisma/client'
 import { ECFRTitle, ProcessedContent } from '../types'
 import { fetchTitleContent } from '../api'
+import { processHierarchy } from './hierarchyProcessor'
+
+function formatProgress(current: number, total: number): string {
+  const adjustedCurrent = Math.min(current, total)
+  const percentage = Math.round((adjustedCurrent / total) * 100)
+  const width = 50
+  const filled = Math.round((width * adjustedCurrent) / total)
+  const empty = Math.max(0, width - filled)
+  const bar = '█'.repeat(filled) + '░'.repeat(empty)
+  return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
+}
 
 export async function ensureTitleExists(
   prisma: PrismaClient,
-  title: ECFRTitle
+  title: ECFRTitle,
+  current: number,
+  total: number
 ): Promise<void> {
   try {
+    process.stdout.write(`\\rProcessing title ${title.number}: ${title.name} - ${formatProgress(current, total)}`)
+    
     const existing = await prisma.title.findUnique({
       where: { number: title.number }
     })
@@ -20,13 +35,24 @@ export async function ensureTitleExists(
           type: 'CFR'
         }
       })
+      process.stdout.write(` - Created`)
     } else if (existing.name !== title.name) {
       await prisma.title.update({
         where: { number: title.number },
         data: { name: title.name }
       })
+      process.stdout.write(` - Updated`)
+    } else {
+      process.stdout.write(` - No changes`)
+    }
+
+    // If this is the last title, add a newline
+    if (current === total) {
+      process.stdout.write('\\n')
     }
   } catch (error) {
+    // Add newline before error for clean output
+    process.stdout.write('\\n')
     console.error(`Error ensuring title ${title.number} exists:`, error)
     throw error
   }
@@ -124,56 +150,6 @@ export async function processTitleContent(
       }).catch(error => {
         console.error('Database error creating activity metrics:', error)
       })
-    }
-  }
-}
-
-async function processHierarchy(
-  prisma: PrismaClient,
-  titleNumber: number,
-  structure: ProcessedContent['structure']
-): Promise<void> {
-  for (const chapter of structure.chapters) {
-    const dbChapter = await prisma.chapter.create({
-      data: {
-        id: `chapter-${titleNumber}-${chapter.number}`,
-        number: chapter.number,
-        name: chapter.name,
-        titleId: `title-${titleNumber}`
-      }
-    })
-
-    for (const part of chapter.parts) {
-      const dbPart = await prisma.part.create({
-        data: {
-          id: `part-${titleNumber}-${chapter.number}-${part.number}`,
-          number: part.number,
-          name: part.name,
-          chapterId: dbChapter.id
-        }
-      })
-
-      for (const subpart of part.subparts) {
-        const dbSubpart = await prisma.subpart.create({
-          data: {
-            id: `subpart-${titleNumber}-${chapter.number}-${part.number}-${subpart.name}`,
-            name: subpart.name,
-            partId: dbPart.id
-          }
-        })
-
-        for (const section of subpart.sections) {
-          await prisma.section.create({
-            data: {
-              id: `section-${titleNumber}-${section.number}`,
-              number: section.number,
-              name: section.name,
-              content: section.content,
-              subpartId: dbSubpart.id
-            }
-          })
-        }
-      }
     }
   }
 }
