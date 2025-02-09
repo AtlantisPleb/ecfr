@@ -120,7 +120,7 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
-    const data = await fetchWithRetry('/api/versioner/v1/structure/titles.json')
+    const data = await fetchWithRetry('/api/versioner/v1/titles.json')
     console.log('Raw titles response:', JSON.stringify(data, null, 2))
     if (!data.titles) {
       console.error('No titles array in response:', data)
@@ -134,7 +134,7 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 }
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
-  const url = `/api/versioner/v1/structure/${date}/title-${titleNumber}.json`
+  const url = `/api/versioner/v1/full/${date}/title-${titleNumber}.xml`
   console.log(`Fetching content for Title ${titleNumber}...`)
   console.log(`URL: ${url}`)
   
@@ -146,7 +146,10 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
       try {
         await rateLimiter.waitForNext()
         const response = await fetch(`${BASE_URL}${url}`, {
-          headers: API_HEADERS,
+          headers: {
+            ...API_HEADERS,
+            'Accept': 'application/xml'  // Specifically request XML for title content
+          },
           redirect: 'follow'
         })
         
@@ -178,14 +181,12 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
-        const data = await response.json()
-        console.log(`Title ${titleNumber} data:`, JSON.stringify(data, null, 2))
+        const content = await response.text()
+        console.log(`Title ${titleNumber} content length:`, content.length)
+        console.log(`Title ${titleNumber} content preview:`, content.slice(0, 200))
         
-        // Extract content from the structure response
-        const content = JSON.stringify(data)
         const wordCount = content
-          .replace(/"[^"]*"/g, ' ') // Remove JSON strings
-          .replace(/[{}\[\],]/g, ' ') // Remove JSON syntax
+          .replace(/<[^>]*>/g, ' ') // Remove XML tags
           .replace(/\s+/g, ' ') // Normalize whitespace
           .trim()
           .split(/\s+/)
