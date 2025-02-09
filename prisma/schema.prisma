@@ -21,7 +21,7 @@ model Agency {
   parent_id       String?
   parent          Agency?           @relation("AgencyHierarchy", fields: [parent_id], references: [id])
   children        Agency[]          @relation("AgencyHierarchy")
-  titles          Title[]
+  titles          Title[]           @relation("AgencyTitles")
   wordCounts      WordCount[]
   activityMetrics ActivityMetrics[]
   createdAt       DateTime          @default(now())
@@ -38,8 +38,7 @@ model Title {
   subpart     String?
   section     String?
   url         String?
-  agency      Agency      @relation(fields: [agencyId], references: [id])
-  agencyId    String
+  agencies    Agency[]    @relation("AgencyTitles")
   chapters    Chapter[]
   versions    Version[]
   createdAt   DateTime    @default(now())
