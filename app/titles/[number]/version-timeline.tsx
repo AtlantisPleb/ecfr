@@ -36,7 +36,7 @@ export function VersionTimeline({ versions }: VersionTimelineProps) {
                       Version {versions.length - i}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {timeAgo(version.amendment_date)}
+                      {timeAgo(version.date)}
                     </div>
                   </div>
                   <Button variant="outline" size="sm">
