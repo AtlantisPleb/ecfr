@@ -1,8 +1,10 @@
-import { connectDB, disconnectDB, prisma } from './processors/db'
-import { processAgency } from './processors/agencyProcessor'
-import { ensureTitleExists, processTitleContent } from './processors/titleProcessor'
-import { fetchAgencies, fetchTitles } from './api'
-import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint'
+import { PrismaClient } from '@prisma/client'
+import { fetchAgencies, fetchTitles, fetchTitleContent } from './api'
+import { processTitle } from './processors/titleProcessor'
+import { saveCheckpoint, loadCheckpoint } from './checkpoint'
+import { ProcessingProgress } from './types'
+
+const prisma = new PrismaClient()
 
 function formatProgress(current: number, total: number): string {
   const adjustedCurrent = Math.min(current, total)
@@ -14,139 +16,104 @@ function formatProgress(current: number, total: number): string {
   return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
 
-export async function main() {
-  try {
-    console.log('Starting eCFR ingestion...')
+async function processAgency(agencyId: string, progress: ProcessingProgress) {
+  const agency = await prisma.agency.findUnique({
+    where: { id: agencyId },
+    include: { titles: true }
+  })
 
-    // Connect to database
-    await connectDB()
+  if (!agency) {
+    console.error(`Agency ${agencyId} not found`)
+    return
+  }
 
-    // Load checkpoint
-    let checkpoint = await loadCheckpoint()
-
-    // Fetch initial data
-    let agencies = []
-    let titles = []
+  console.log(`\nProcessing agency: ${agency.name}`)
+  
+  for (const title of agency.titles) {
+    if (progress.completed.includes(title.id)) {
+      continue
+    }
 
     try {
-      console.log('Fetching agencies list...')
-      agencies = await fetchAgencies()
-      console.log('Fetching titles list...')
-      titles = await fetchTitles()
-    } catch (error) {
-      console.error('Failed to fetch initial data:', error)
-      throw error
-    }
+      const content = await fetchTitleContent(title.number)
+      if (!content) {
+        console.log(`No content found for title ${title.number}, skipping`)
+        continue
+      }
 
-    // Validate response data
-    if (!Array.isArray(agencies) || !Array.isArray(titles)) {
-      console.error('Invalid API response:', { agencies, titles })
-      throw new Error('Invalid API response format')
+      const result = await processTitle(
+        { 
+          number: title.number,
+          name: title.name,
+          type: 'CFR',
+          chapter_count: 0,
+          last_updated: new Date().toISOString(),
+          chapters: []
+        },
+        agencyId,
+        content
+      )
+
+      if (result.success) {
+        progress.completed.push(title.id)
+        await saveCheckpoint({
+          lastAgencyId: agencyId,
+          lastTitleNumber: title.number,
+          timestamp: new Date(),
+          progress: {
+            agenciesProcessed: progress.current,
+            titlesProcessed: progress.completed.length
+          }
+        })
+      } else {
+        progress.failed.push(title.id)
+      }
+
+      console.log(`Title ${title.number}: ${result.success ? 'Success' : 'Failed'}`)
+      console.log(`Progress: ${formatProgress(progress.completed.length, progress.total)}`)
+    } catch (error) {
+      console.error(`Error processing title ${title.number}:`, error)
+      progress.failed.push(title.id)
     }
+  }
+}
+
+export async function ingest() {
+  console.log('Starting eCFR ingestion...')
+
+  // Load checkpoint if exists
+  const checkpoint = await loadCheckpoint()
+  const progress: ProcessingProgress = {
+    total: 0,
+    current: checkpoint?.progress.agenciesProcessed ?? 0,
+    completed: [],
+    failed: []
+  }
+
+  try {
+    // Fetch agencies and titles
+    const [agencies, titles] = await Promise.all([
+      fetchAgencies(),
+      fetchTitles()
+    ])
 
     console.log(`Found ${agencies.length} agencies and ${titles.length} titles`)
 
-    let processedAgencies = checkpoint?.progress.agenciesProcessed || 0
-    let processedTitles = checkpoint?.progress.titlesProcessed || 0
-    const totalAgencies = agencies.length
-    const totalTitles = titles.length
-
-    // First, ensure all titles exist
-    console.log('Creating/updating titles...')
-    let titleCounter = 0
-    for (const title of titles) {
-      titleCounter++
-      await ensureTitleExists(prisma, title, titleCounter, titles.length)
-    }
-    console.log('\\nTitles created/updated successfully')
-
-    // Process agencies
+    // Process each agency
     for (const agency of agencies) {
-      try {
-        if (!agency.slug) {
-          console.warn('Agency missing slug:', agency.name)
-          continue
-        }
-
-        if (await shouldSkipAgency(agency.slug, checkpoint, prisma)) {
-          processedAgencies++
-          continue
-        }
-
-        console.log(`\\nProcessing agency: ${agency.name}`)
-        console.log(`Agency Progress: ${formatProgress(processedAgencies + 1, totalAgencies)}`)
-
-        // Process agency and get its ID
-        const agencyId = await processAgency(prisma, agency)
-
-        // Process titles for this agency
-        let agencyTitlesProcessed = 0
-        const agencyTitlesTotal = agency.cfr_references?.length || 0
-
-        if (Array.isArray(agency.cfr_references)) {
-          for (const ref of agency.cfr_references) {
-            try {
-              const title = titles.find(t => t.number === ref.title)
-              if (!title) {
-                agencyTitlesProcessed++
-                continue
-              }
-
-              if (await shouldSkipTitle(title.number, checkpoint)) {
-                processedTitles++
-                agencyTitlesProcessed++
-                continue
-              }
-
-              console.log(`Processing Title ${title.number}: ${title.name}`)
-              console.log(`Title Progress for ${agency.name}: ${formatProgress(agencyTitlesProcessed + 1, agencyTitlesTotal)}`)
-              console.log(`Overall Title Progress: ${formatProgress(Math.min(processedTitles + 1, totalTitles), totalTitles)}`)
-
-              // Process title content
-              await processTitleContent(prisma, title.number, agencyId)
-
-              processedTitles++
-              agencyTitlesProcessed++
-
-              // Save progress
-              await saveCheckpoint({
-                lastAgencyId: agency.slug,
-                lastTitleNumber: title.number,
-                progress: {
-                  agenciesProcessed: processedAgencies,
-                  titlesProcessed: Math.min(processedTitles, totalTitles)
-                }
-              })
-            } catch (error) {
-              console.error(`Error processing title ${ref.title}:`, error)
-              throw error
-            }
-          }
-        }
-
-        processedAgencies++
-
-        // Save agency checkpoint
-        await saveCheckpoint({
-          lastAgencyId: agency.slug,
-          lastTitleNumber: null,
-          progress: {
-            agenciesProcessed: processedAgencies,
-            titlesProcessed: Math.min(processedTitles, totalTitles)
-          }
-        })
-      } catch (error) {
-        console.error(`Error processing agency ${agency.name}:`, error)
-        throw error
-      }
+      await processAgency(agency.id, progress)
+      progress.current++
     }
 
-    console.log('\\neCFR ingestion completed successfully')
-    console.log(`Processed ${processedAgencies} agencies and ${Math.min(processedTitles, totalTitles)} titles`)
+    console.log('\nIngestion complete!')
+    if (progress.failed.length > 0) {
+      console.log(`Failed to process ${progress.failed.length} titles:`)
+      console.log(progress.failed.join(', '))
+    }
   } catch (error) {
     console.error('Fatal error during ingestion:', error)
     throw error
   } finally {
-    await disconnectDB()
+    await prisma.$disconnect()
   }
 }
