@@ -23,7 +23,7 @@ export async function processTitle(
         data: {
           number: title.number,
           name: title.name,
-          type: title.type,
+          type: title.type || 'CFR',
           agencies: {
             connect: { id: agencyId }
           }
@@ -35,7 +35,7 @@ export async function processTitle(
         where: { id: titleRecord.id },
         data: {
           name: title.name,
-          type: title.type,
+          type: title.type || 'CFR',
           agencies: {
             connect: { id: agencyId }
           }
