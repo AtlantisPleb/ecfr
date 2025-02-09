@@ -1,10 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  swcMinify: true,
-  experimental: {
-    serverActions: true,
+  images: {
+    domains: ['images.ctfassets.net'],
   },
 }
 
-export default nextConfig
+module.exports = nextConfig
