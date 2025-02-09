@@ -5,6 +5,7 @@ import { Agency, Title, WordCount } from '@prisma/client'
 import { timeAgo } from '@/lib/utils'
 import { ArrowUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Link from 'next/link'
 
 type AgencyWithRelations = Agency & {
   titles: Title[];
@@ -23,6 +24,18 @@ export const columns: ColumnDef<AgencyWithRelations>[] = [
           Agency Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
+      )
+    },
+    cell: ({ row }) => {
+      const name = row.original.name
+      const slug = row.original.slug
+      return (
+        <Link 
+          href={`/agencies/${slug}`}
+          className="text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          {name}
+        </Link>
       )
     },
   },

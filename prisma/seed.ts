@@ -10,6 +10,7 @@ async function main() {
     create: {
       id: 'agency-dot',
       name: 'Department of Transportation',
+      slug: 'department-of-transportation',
       titles: {
         create: {
           number: 49,
@@ -46,6 +47,7 @@ async function main() {
     create: {
       id: 'agency-epa',
       name: 'Environmental Protection Agency',
+      slug: 'environmental-protection-agency',
       titles: {
         create: {
           number: 40,
