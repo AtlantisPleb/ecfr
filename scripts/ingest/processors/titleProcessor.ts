@@ -12,6 +12,14 @@ export async function processTitle(
   content: ProcessedContent
 ): Promise<TitleProcessingResult> {
   try {
+    console.log('\nProcessing title content...')
+    console.log('Content structure:', {
+      chapters: content.structure.chapters.length,
+      wordCount: content.wordCount,
+      textMetrics: content.textMetrics,
+      references: content.references.length
+    })
+
     // Check if title exists
     let titleRecord = await prisma.title.findUnique({
       where: { number: title.number }
@@ -19,6 +27,7 @@ export async function processTitle(
 
     // Create or update title
     if (!titleRecord) {
+      console.log('Creating new title record...')
       titleRecord = await prisma.title.create({
         data: {
           number: title.number,
@@ -29,8 +38,9 @@ export async function processTitle(
           }
         }
       })
+      console.log('Created title record:', titleRecord.id)
     } else {
-      // Update existing title
+      console.log('Updating existing title record...')
       await prisma.title.update({
         where: { id: titleRecord.id },
         data: {
@@ -41,12 +51,15 @@ export async function processTitle(
           }
         }
       })
+      console.log('Updated title record:', titleRecord.id)
     }
 
     // Process hierarchy (chapters/parts/subparts/sections)
+    console.log('\nProcessing title hierarchy...')
     await processHierarchy(titleRecord.id, content.structure)
 
     // Create version with content
+    console.log('\nCreating version record...')
     const versionResult = await processVersion(titleRecord.id, {
       amendment_date: new Date().toISOString(),
       effective_date: new Date().toISOString(),
@@ -64,8 +77,10 @@ export async function processTitle(
     if (!versionResult.success) {
       throw new Error(versionResult.error)
     }
+    console.log('Created version record:', versionResult.data!.id)
 
     // Update version with content
+    console.log('Updating version with content...')
     await prisma.version.update({
       where: { id: versionResult.data!.id },
       data: {
@@ -73,11 +88,15 @@ export async function processTitle(
         wordCount: content.wordCount
       }
     })
+    console.log('Updated version content')
 
     // Process metrics
+    console.log('\nProcessing metrics...')
     await processMetrics(versionResult.data!.id, content)
+    console.log('Metrics processed')
 
     // Create word count
+    console.log('\nCreating word count record...')
     await prisma.wordCount.create({
       data: {
         agencyId,
@@ -85,6 +104,7 @@ export async function processTitle(
         date: new Date()
       }
     })
+    console.log('Created word count record')
 
     return {
       success: true,
