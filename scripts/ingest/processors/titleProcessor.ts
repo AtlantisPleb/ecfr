@@ -16,11 +16,16 @@ export async function processTitle(
     console.log('Content structure:', {
       chapters: content.structure.chapters.length,
       wordCount: content.wordCount,
-      textMetrics: content.textMetrics,
+      textMetrics: {
+        uniqueWords: content.textMetrics.uniqueWords,
+        avgWordLength: content.textMetrics.avgWordLength.toFixed(2),
+        avgSentenceLen: content.textMetrics.avgSentenceLen.toFixed(2)
+      },
       references: content.references.length
     })
 
     // Check if title exists and get its latest version
+    console.log('\nChecking for existing title...')
     const existingTitle = await prisma.title.findUnique({
       where: { number: title.number },
       include: {
@@ -34,11 +39,12 @@ export async function processTitle(
     })
 
     const oldWordCount = existingTitle?.versions[0]?.wordCount ?? 0
+    console.log('Previous version word count:', oldWordCount)
 
     // Create or update title
     let titleRecord: Title
     if (!existingTitle) {
-      console.log('Creating new title record...')
+      console.log('\nCreating new title record...')
       titleRecord = await prisma.title.create({
         data: {
           number: title.number,
@@ -49,9 +55,13 @@ export async function processTitle(
           }
         }
       })
-      console.log('Created title record:', titleRecord.id)
+      console.log('Created title record:', {
+        id: titleRecord.id,
+        number: titleRecord.number,
+        name: titleRecord.name
+      })
     } else {
-      console.log('Updating existing title record...')
+      console.log('\nUpdating existing title record...')
       titleRecord = await prisma.title.update({
         where: { id: existingTitle.id },
         data: {
@@ -62,7 +72,11 @@ export async function processTitle(
           }
         }
       })
-      console.log('Updated title record:', titleRecord.id)
+      console.log('Updated title record:', {
+        id: titleRecord.id,
+        number: titleRecord.number,
+        name: titleRecord.name
+      })
     }
 
     // Process hierarchy (chapters/parts/subparts/sections)
@@ -91,7 +105,7 @@ export async function processTitle(
     console.log('Created version record:', versionResult.data!.id)
 
     // Update version with content
-    console.log('Updating version with content...')
+    console.log('\nUpdating version with content...')
     await prisma.version.update({
       where: { id: versionResult.data!.id },
       data: {
@@ -108,14 +122,14 @@ export async function processTitle(
 
     // Create word count
     console.log('\nCreating word count record...')
-    await prisma.wordCount.create({
+    const wordCount = await prisma.wordCount.create({
       data: {
         agencyId,
         count: content.wordCount,
         date: new Date()
       }
     })
-    console.log('Created word count record')
+    console.log('Created word count record:', wordCount.id)
 
     // Process activity metrics if this is an update
     if (oldWordCount > 0) {
@@ -133,7 +147,10 @@ export async function processTitle(
       }
     }
   } catch (error) {
-    console.error('Error processing title:', error)
+    console.error('\nError processing title:', error)
+    if (error instanceof Error) {
+      console.error('Stack:', error.stack)
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error processing title'
