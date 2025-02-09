@@ -1,0 +1,400 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "eCFR API",
+    "version": "1.0.0",
+    "description": "API for accessing Electronic Code of Federal Regulations"
+  },
+  "servers": [
+    {
+      "url": "/api/admin/v1"
+    }
+  ],
+  "paths": {
+    "/agencies.json": {
+      "get": {
+        "summary": "Get all agencies",
+        "description": "Returns a list of all agencies and their hierarchical relationships",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agencies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "short_name": {
+                            "type": "string"
+                          },
+                          "display_name": {
+                            "type": "string"
+                          },
+                          "sortable_name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "children": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/Agency"
+                            }
+                          },
+                          "cfr_references": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "integer"
+                                },
+                                "chapter": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/corrections.json": {
+      "get": {
+        "summary": "Get corrections",
+        "description": "The Corrections service can be used to determine all corrections or can be filtered by title, effective date, or correction date",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "Restricts results to eCFR corrections that occurred on or before the specified date and that were corrected on or after the specified date. Format: YYYY-MM-DD",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "description": "Restricts results to the given title number: Format: '1', '2', '50', etc",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_corrected_date",
+            "in": "query",
+            "description": "Returns only corrections that were corrected on the given date. Format: YYYY-MM-DD",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ecfr_corrections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Correction"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Title not found"
+          }
+        }
+      }
+    },
+    "/corrections/title/{title}.json": {
+      "get": {
+        "summary": "Get corrections by title",
+        "description": "Returns all corrections for the supplied title",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "CFR title number"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "number of results per page; max of 1,000",
+            "schema": {
+              "type": "integer",
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "page of results; can't paginate beyond 10,000 total results",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "order of results",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paginate_by",
+            "in": "query",
+            "description": "how results should be paginated",
+            "schema": {
+              "type": "string",
+              "enum": ["date"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "current_page": {
+                          "type": "integer"
+                        },
+                        "total_count": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        },
+                        "max_score": {
+                          "type": "number"
+                        },
+                        "min_date": {
+                          "type": "string"
+                        },
+                        "max_date": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Agency": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "short_name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "sortable_name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "cfr_references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "integer"
+                },
+                "chapter": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Correction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "cfr_references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cfr_reference": {
+                  "type": "string"
+                },
+                "hierarchy": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "subtitle": {
+                      "type": "string"
+                    },
+                    "part": {
+                      "type": "string"
+                    },
+                    "subpart": {
+                      "type": "string"
+                    },
+                    "section": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "corrective_action": {
+            "type": "string"
+          },
+          "error_corrected": {
+            "type": "string",
+            "format": "date"
+          },
+          "error_occurred": {
+            "type": "string",
+            "format": "date"
+          },
+          "fr_citation": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "display_in_toc": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "integer"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "last_modified": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  }
+}
