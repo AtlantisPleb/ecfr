@@ -7,8 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import Link from 'next/link'
 
 interface ReferencesListProps {
-  incomingRefs: Reference[]
-  outgoingRefs: Reference[]
+  incomingRefs: Pick<Reference, 'id' | 'context' | 'type'>[]
+  outgoingRefs: Pick<Reference, 'id' | 'context' | 'type'>[]
 }
 
 export function ReferencesList({
@@ -32,12 +32,6 @@ export function ReferencesList({
               <div className="space-y-4">
                 {incomingRefs.map(ref => (
                   <div key={ref.id} className="p-4 rounded-lg border">
-                    <Link
-                      href={`/titles/${ref.sourceId}`}
-                      className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                    >
-                      Title {ref.sourceId}
-                    </Link>
                     <div className="text-sm text-gray-500 mt-1">
                       {ref.context}
                     </div>
@@ -62,12 +56,6 @@ export function ReferencesList({
               <div className="space-y-4">
                 {outgoingRefs.map(ref => (
                   <div key={ref.id} className="p-4 rounded-lg border">
-                    <Link
-                      href={`/titles/${ref.targetId}`}
-                      className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                    >
-                      Title {ref.targetId}
-                    </Link>
                     <div className="text-sm text-gray-500 mt-1">
                       {ref.context}
                     </div>
