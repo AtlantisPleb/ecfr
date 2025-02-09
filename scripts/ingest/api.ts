@@ -1,5 +1,6 @@
-import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
+import { ECFRAgency, ECFRTitle, ProcessedContent, ECFRChapter, ECFRPart, ECFRSubpart, ECFRSection } from './types.js'
 import { RateLimiter } from './rateLimiter.js'
+import { calculateTextMetrics, extractReferences } from './analysis.js'
 
 const BASE_URL = 'https://www.ecfr.gov'
 const API_HEADERS = {
@@ -125,6 +126,58 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
   }
 }
 
+function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
+  const chapters: ECFRChapter[] = []
+
+  if (contentObj.structure?.chapters) {
+    for (const chapterData of contentObj.structure.chapters) {
+      const chapter: ECFRChapter = {
+        number: parseInt(chapterData.number),
+        name: chapterData.name,
+        parts: []
+      }
+
+      if (chapterData.parts) {
+        for (const partData of chapterData.parts) {
+          const part: ECFRPart = {
+            number: parseInt(partData.number),
+            name: partData.name,
+            subparts: []
+          }
+
+          if (partData.subparts) {
+            for (const subpartData of partData.subparts) {
+              const subpart: ECFRSubpart = {
+                name: subpartData.name,
+                sections: []
+              }
+
+              if (subpartData.sections) {
+                for (const sectionData of subpartData.sections) {
+                  const section: ECFRSection = {
+                    number: sectionData.number,
+                    name: sectionData.name,
+                    content: sectionData.content || ''
+                  }
+                  subpart.sections.push(section)
+                }
+              }
+
+              part.subparts.push(subpart)
+            }
+          }
+
+          chapter.parts.push(part)
+        }
+      }
+
+      chapters.push(chapter)
+    }
+  }
+
+  return { chapters }
+}
+
 export async function fetchTitleContent(titleNumber: number, date: string = 'latest'): Promise<ProcessedContent | null> {
   try {
     // First get the versions info for this title
@@ -177,9 +230,9 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
         }
 
         const content = await response.text()
-        
-        // For JSON content, we'll count words in the text fields
         const contentObj = JSON.parse(content)
+        
+        // Extract all text content for metrics
         const allText = JSON.stringify(contentObj, null, 2)
         const wordCount = allText
           .replace(/"[^"]*"/g, ' ') // Remove JSON strings
@@ -189,9 +242,19 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
           .split(/\s+/)
           .length
 
+        // Calculate metrics and extract references
+        const textMetrics = calculateTextMetrics(allText)
+        const references = extractReferences(allText, titleNumber.toString())
+
+        // Parse hierarchical structure
+        const structure = parseStructure(contentObj)
+
         return {
           content,
-          wordCount
+          wordCount,
+          textMetrics,
+          references,
+          structure
         }
       } catch (error) {
         if (error instanceof APIError && !error.shouldRetry) {
@@ -216,4 +279,52 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'lat
   }
 
   throw new Error('Max retries exceeded')
+}
+
+export async function fetchChapter(titleNumber: number, chapterNumber: number): Promise<ECFRChapter | null> {
+  try {
+    const url = `/api/versioner/v1/structure/latest/title-${titleNumber}/chapter-${chapterNumber}.json`
+    const data = await fetchWithRetry(url)
+    if (!data || !data.chapter) {
+      return null
+    }
+    return data.chapter
+  } catch (error) {
+    if (error instanceof APIError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+export async function fetchPart(titleNumber: number, partNumber: number): Promise<ECFRPart | null> {
+  try {
+    const url = `/api/versioner/v1/structure/latest/title-${titleNumber}/part-${partNumber}.json`
+    const data = await fetchWithRetry(url)
+    if (!data || !data.part) {
+      return null
+    }
+    return data.part
+  } catch (error) {
+    if (error instanceof APIError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+export async function fetchSection(titleNumber: number, sectionNumber: string): Promise<ECFRSection | null> {
+  try {
+    const url = `/api/versioner/v1/structure/latest/title-${titleNumber}/section-${sectionNumber}.json`
+    const data = await fetchWithRetry(url)
+    if (!data || !data.section) {
+      return null
+    }
+    return data.section
+  } catch (error) {
+    if (error instanceof APIError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
 }
