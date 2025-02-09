@@ -29,8 +29,9 @@ export interface ECFRAgency {
 export interface ECFRTitle {
   number: number
   name: string
-  agencies: string[]
-  xml_url: string
+  type: string
+  chapter_count: number
+  last_updated: string
 }
 
 export interface ProcessedContent {
