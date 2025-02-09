@@ -3,32 +3,11 @@ import { fetchAgencies, fetchTitles, fetchTitleContent } from './api.js'
 import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle, formatProgress } from './checkpoint.js'
 import { ECFRAgency, ECFRTitle } from './types.js'
 
-// Global error handler for unhandled rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('=== Unhandled Rejection ===')
-  console.error('Promise:', promise)
-  console.error('Reason:', reason)
-  if (reason instanceof Error) {
-    console.error('Stack:', reason.stack)
-  } else {
-    console.error('Full reason object:', JSON.stringify(reason, null, 2))
-  }
-  process.exit(1)
-})
-
-// Global error handler for uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('=== Uncaught Exception ===')
-  console.error('Error:', error)
-  console.error('Stack:', error.stack)
-  process.exit(1)
-})
-
 const prisma = new PrismaClient({
   log: ['query', 'info', 'warn', 'error']
 })
 
-async function main() {
+export async function main() {
   try {
     console.log('Starting eCFR ingestion...')
     
@@ -38,6 +17,9 @@ async function main() {
       console.log('Database connection successful')
     } catch (error) {
       console.error('Database connection failed:', error)
+      if (error instanceof Error) {
+        console.error('Stack:', error.stack)
+      }
       throw error
     }
 
@@ -48,6 +30,9 @@ async function main() {
       console.log('Loaded checkpoint:', checkpoint)
     } catch (error) {
       console.error('Failed to load checkpoint:', error)
+      if (error instanceof Error) {
+        console.error('Stack:', error.stack)
+      }
       throw error
     }
 
@@ -56,14 +41,15 @@ async function main() {
     let titles: ECFRTitle[] = []
 
     try {
-      console.log('Fetching agencies...')
+      console.log('Fetching initial data...')
       agencies = await fetchAgencies()
-      console.log('Fetching titles...')
+      console.log('Agencies fetched:', agencies)
       titles = await fetchTitles()
+      console.log('Titles fetched:', titles)
     } catch (error) {
       console.error('Failed to fetch initial data:', error)
       if (error instanceof Error) {
-        console.error('Error stack:', error.stack)
+        console.error('Stack:', error.stack)
       }
       throw error
     }
@@ -110,6 +96,9 @@ async function main() {
           }
         }).catch(error => {
           console.error('Database error creating/updating agency:', error)
+          if (error instanceof Error) {
+            console.error('Stack:', error.stack)
+          }
           throw error
         })
 
@@ -155,6 +144,9 @@ async function main() {
                 }
               }).catch(error => {
                 console.error('Database error creating/updating title:', error)
+                if (error instanceof Error) {
+                  console.error('Stack:', error.stack)
+                }
                 throw error
               })
 
@@ -164,6 +156,9 @@ async function main() {
                 orderBy: { date: 'desc' }
               }).catch(error => {
                 console.error('Database error fetching latest version:', error)
+                if (error instanceof Error) {
+                  console.error('Stack:', error.stack)
+                }
                 throw error
               })
 
@@ -184,6 +179,9 @@ async function main() {
                   }
                 }).catch(error => {
                   console.error('Database error creating version:', error)
+                  if (error instanceof Error) {
+                    console.error('Stack:', error.stack)
+                  }
                   throw error
                 })
 
@@ -195,6 +193,9 @@ async function main() {
                   }
                 }).catch(error => {
                   console.error('Database error creating word count:', error)
+                  if (error instanceof Error) {
+                    console.error('Stack:', error.stack)
+                  }
                   throw error
                 })
 
@@ -215,10 +216,16 @@ async function main() {
                 }
               }).catch(error => {
                 console.error('Error saving checkpoint:', error)
+                if (error instanceof Error) {
+                  console.error('Stack:', error.stack)
+                }
                 throw error
               })
             } catch (error) {
               console.error(`Error processing title ${ref.title}:`, error)
+              if (error instanceof Error) {
+                console.error('Stack:', error.stack)
+              }
               throw error
             }
           }
@@ -236,10 +243,16 @@ async function main() {
           }
         }).catch(error => {
           console.error('Error saving agency checkpoint:', error)
+          if (error instanceof Error) {
+            console.error('Stack:', error.stack)
+          }
           throw error
         })
       } catch (error) {
         console.error(`Error processing agency ${agency.name}:`, error)
+        if (error instanceof Error) {
+          console.error('Stack:', error.stack)
+        }
         throw error
       }
     }
@@ -249,21 +262,10 @@ async function main() {
   } catch (error) {
     console.error('Fatal error during ingestion:', error)
     if (error instanceof Error) {
-      console.error('Error stack:', error.stack)
+      console.error('Stack:', error.stack)
     }
     throw error
   } finally {
     await prisma.$disconnect()
   }
 }
-
-// Run with proper error handling
-main().catch(error => {
-  console.error('Script failed with error:', error)
-  if (error instanceof Error) {
-    console.error('Error stack:', error.stack)
-  } else {
-    console.error('Full error object:', JSON.stringify(error, null, 2))
-  }
-  process.exit(1)
-})
