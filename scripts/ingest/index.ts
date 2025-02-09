@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client'
-import { fetchAgencies, fetchTitles, fetchTitleContent } from './api'
-import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint'
-import { ECFRAgency, ECFRTitle } from './types'
+import { fetchAgencies, fetchTitles, fetchTitleContent } from './api.js'
+import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint.js'
+import { ECFRAgency, ECFRTitle } from './types.js'
 
 const prisma = new PrismaClient()
 
