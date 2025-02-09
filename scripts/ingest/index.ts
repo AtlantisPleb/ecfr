@@ -18,6 +18,10 @@ function formatProgress(current: number, total: number): string {
   return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
 
+function generateSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+}
+
 export async function main() {
   try {
     console.log('Starting eCFR ingestion...')
@@ -74,15 +78,20 @@ export async function main() {
         console.log(`\nProcessing agency: ${agency.name}`)
         console.log(`Agency Progress: ${formatProgress(processedAgencies + 1, totalAgencies)}`)
 
+        const displayName = agency.display_name || agency.name
+        const slug = generateSlug(displayName)
+
         // Create or update agency
         const dbAgency = await prisma.agency.upsert({
           where: { id: agency.slug },
           create: {
             id: agency.slug,
-            name: agency.display_name || agency.name
+            name: displayName,
+            slug
           },
           update: {
-            name: agency.display_name || agency.name
+            name: displayName,
+            slug
           }
         }).catch(error => {
           console.error('Database error creating/updating agency:', error)
