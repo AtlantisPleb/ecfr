@@ -1,149 +1,179 @@
-import { PrismaClient } from '@prisma/client'
-import { ECFRTitle, ProcessedContent } from '../types'
-import { fetchTitleContent } from '../api'
+import { PrismaClient, Title } from '@prisma/client'
+import { ECFRTitle, ProcessedContent, TitleProcessingResult } from '../types'
+import { processVersion } from './versionProcessor'
 import { processHierarchy } from './hierarchyProcessor'
+import { processMetrics, processActivityMetrics } from './metricsProcessor'
 
-function formatProgress(current: number, total: number): string {
-  const adjustedCurrent = Math.min(current, total)
-  const percentage = Math.round((adjustedCurrent / total) * 100)
-  const width = 50
-  const filled = Math.round((width * adjustedCurrent) / total)
-  const empty = Math.max(0, width - filled)
-  const bar = '█'.repeat(filled) + '░'.repeat(empty)
-  return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
-}
+const prisma = new PrismaClient()
 
-export async function ensureTitleExists(
-  prisma: PrismaClient,
+export async function processTitle(
   title: ECFRTitle,
-  current: number,
-  total: number
-): Promise<void> {
+  agencyId: string,
+  content: ProcessedContent
+): Promise<TitleProcessingResult> {
   try {
-    const existing = await prisma.title.findUnique({
-      where: { number: title.number }
+    console.log('\nProcessing title content...')
+    console.log('Content structure:', {
+      chapters: content.structure.chapters.length,
+      wordCount: content.wordCount,
+      textMetrics: content.textMetrics,
+      references: content.references.length
     })
 
-    let action = 'No changes'
-    if (!existing) {
-      await prisma.title.create({
+    // Check if title exists and get its latest version
+    const existingTitle = await prisma.title.findUnique({
+      where: { number: title.number },
+      include: {
+        versions: {
+          orderBy: {
+            amendment_date: 'desc'
+          },
+          take: 1
+        }
+      }
+    })
+
+    const oldWordCount = existingTitle?.versions[0]?.wordCount ?? 0
+
+    // Create or update title
+    let titleRecord: Title
+    if (!existingTitle) {
+      console.log('Creating new title record...')
+      titleRecord = await prisma.title.create({
         data: {
-          id: `title-${title.number}`,
           number: title.number,
           name: title.name,
-          type: 'CFR'
-        }
-      })
-      action = 'Created'
-    } else if (existing.name !== title.name) {
-      await prisma.title.update({
-        where: { number: title.number },
-        data: { name: title.name }
-      })
-      action = 'Updated'
-    }
-
-    console.log(`Processing title ${title.number}: ${title.name}`)
-    console.log(`Progress: ${formatProgress(current, total)}`)
-    console.log(`Status: ${action}\\n`)
-  } catch (error) {
-    console.error(`Error ensuring title ${title.number} exists:`, error)
-    throw error
-  }
-}
-
-export async function processTitleContent(
-  prisma: PrismaClient,
-  titleNumber: number,
-  agencyId: string
-): Promise<void> {
-  const result = await fetchTitleContent(titleNumber)
-  if (!result) {
-    console.log(`No content found for title ${titleNumber}, skipping`)
-    return
-  }
-
-  const { content, wordCount, textMetrics, references, structure } = result
-
-  // Connect agency to title (many-to-many)
-  await prisma.agency.update({
-    where: { id: agencyId },
-    data: {
-      titles: {
-        connect: { number: titleNumber }
-      }
-    }
-  }).catch(error => {
-    console.error('Database error connecting agency to title:', error)
-    throw error
-  })
-
-  // Process hierarchical structure
-  await processHierarchy(prisma, titleNumber, structure)
-
-  // Check for changes and create new version if needed
-  const latestVersion = await prisma.version.findFirst({
-    where: { titleId: `title-${titleNumber}` },
-    orderBy: { date: 'desc' }
-  })
-
-  if (!latestVersion || latestVersion.content !== content) {
-    const newVersion = await prisma.version.create({
-      data: {
-        titleId: `title-${titleNumber}`,
-        content,
-        wordCount,
-        date: new Date(),
-        changes: {
-          create: {
-            type: latestVersion ? 'MODIFY' : 'ADD',
-            section: 'full',
-            description: latestVersion ? 'Content updated' : 'Initial version'
+          type: title.type || 'CFR',
+          agencies: {
+            connect: { id: agencyId }
           }
-        },
-        textMetrics: {
-          create: textMetrics
         }
-      }
+      })
+      console.log('Created title record:', titleRecord.id)
+    } else {
+      console.log('Updating existing title record...')
+      titleRecord = await prisma.title.update({
+        where: { id: existingTitle.id },
+        data: {
+          name: title.name,
+          type: title.type || 'CFR',
+          agencies: {
+            connect: { id: agencyId }
+          }
+        }
+      })
+      console.log('Updated title record:', titleRecord.id)
+    }
+
+    // Process hierarchy (chapters/parts/subparts/sections)
+    console.log('\nProcessing title hierarchy...')
+    await processHierarchy(titleRecord.id, content.structure)
+
+    // Create version with content
+    console.log('\nCreating version record...')
+    const versionResult = await processVersion(titleRecord.id, {
+      amendment_date: new Date().toISOString(),
+      effective_date: new Date().toISOString(),
+      published_date: new Date().toISOString(),
+      authority: 'Initial version',
+      source: 'eCFR API',
+      fr_citations: [],
+      changes: [{
+        type: oldWordCount ? 'MODIFY' : 'ADD',
+        section: 'full',
+        description: oldWordCount ? 'Content updated' : 'Initial version'
+      }]
     })
 
-    // Create references
-    for (const ref of references) {
-      await prisma.reference.create({
-        data: {
-          sourceId: newVersion.id,
-          targetId: newVersion.id, // For now, reference itself
-          context: ref.context,
-          type: ref.type
-        }
-      }).catch(error => {
-        console.error('Database error creating reference:', error)
-      })
+    if (!versionResult.success) {
+      throw new Error(versionResult.error)
     }
+    console.log('Created version record:', versionResult.data!.id)
+
+    // Update version with content
+    console.log('Updating version with content...')
+    await prisma.version.update({
+      where: { id: versionResult.data!.id },
+      data: {
+        content: content.content,
+        wordCount: content.wordCount
+      }
+    })
+    console.log('Updated version content')
+
+    // Process metrics
+    console.log('\nProcessing metrics...')
+    await processMetrics(versionResult.data!.id, content)
+    console.log('Metrics processed')
 
     // Create word count
+    console.log('\nCreating word count record...')
     await prisma.wordCount.create({
       data: {
         agencyId,
-        count: wordCount,
+        count: content.wordCount,
         date: new Date()
       }
     })
+    console.log('Created word count record')
 
-    // Calculate activity metrics if this is an update
-    if (latestVersion) {
-      await prisma.activityMetrics.create({
-        data: {
-          agencyId,
-          date: new Date(),
-          newContent: textMetrics.wordCount - latestVersion.wordCount,
-          modifiedContent: Math.abs(textMetrics.wordCount - latestVersion.wordCount),
-          deletedContent: Math.max(0, latestVersion.wordCount - textMetrics.wordCount),
-          totalWords: textMetrics.wordCount
-        }
-      }).catch(error => {
-        console.error('Database error creating activity metrics:', error)
-      })
+    // Process activity metrics if this is an update
+    if (oldWordCount > 0) {
+      console.log('\nProcessing activity metrics...')
+      await processActivityMetrics(agencyId, oldWordCount, content.wordCount)
+      console.log('Activity metrics processed')
+    }
+
+    return {
+      success: true,
+      data: {
+        id: titleRecord.id,
+        number: titleRecord.number,
+        name: titleRecord.name
+      }
+    }
+  } catch (error) {
+    console.error('Error processing title:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error processing title'
     }
   }
+}
+
+export async function getLatestTitle(number: number) {
+  return prisma.title.findUnique({
+    where: { number },
+    include: {
+      versions: {
+        orderBy: {
+          amendment_date: 'desc'
+        },
+        take: 1
+      }
+    }
+  })
+}
+
+export async function deleteTitle(id: string): Promise<void> {
+  await prisma.title.delete({
+    where: { id }
+  })
+}
+
+export async function getTitleHistory(id: string) {
+  return prisma.title.findUnique({
+    where: { id },
+    include: {
+      versions: {
+        include: {
+          changes: true,
+          citations: true
+        },
+        orderBy: {
+          amendment_date: 'desc'
+        }
+      }
+    }
+  })
 }

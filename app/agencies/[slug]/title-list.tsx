@@ -1,5 +1,5 @@
-"use client"
-
+import { Version } from '@prisma/client'
+import { timeAgo } from '@/lib/utils'
 import {
   Table,
   TableBody,
@@ -7,12 +7,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Title, Version } from '@prisma/client'
-import { timeAgo } from '@/lib/utils'
+} from '@/components/ui/table'
+import Link from 'next/link'
 
-type TitleWithVersion = Title & {
-  versions: Pick<Version, 'wordCount' | 'date'>[]
+type TitleWithVersion = {
+  id: string
+  number: number
+  name: string
+  versions: Pick<Version, 'wordCount' | 'amendment_date'>[]
 }
 
 interface TitleListProps {
@@ -37,16 +39,21 @@ export function TitleList({ titles }: TitleListProps) {
             return (
               <TableRow key={title.id}>
                 <TableCell>{title.number}</TableCell>
-                <TableCell>{title.name}</TableCell>
                 <TableCell>
-                  {latestVersion
-                    ? latestVersion.wordCount.toLocaleString()
-                    : "N/A"}
+                  <Link
+                    href={`/titles/${title.number}`}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    {title.name}
+                  </Link>
                 </TableCell>
                 <TableCell>
-                  {latestVersion
-                    ? timeAgo(latestVersion.date)
-                    : "Never"}
+                  {latestVersion?.wordCount?.toLocaleString() ?? 'N/A'}
+                </TableCell>
+                <TableCell>
+                  {latestVersion?.amendment_date
+                    ? timeAgo(latestVersion.amendment_date)
+                    : 'Never'}
                 </TableCell>
               </TableRow>
             )

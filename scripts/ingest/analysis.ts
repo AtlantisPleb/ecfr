@@ -27,26 +27,51 @@ export function calculateTextMetrics(content: string): TextMetricsData {
 export function extractReferences(content: string, sourceVersionId: string): ReferenceData[] {
   const references: ReferenceData[] = []
   
-  // Match patterns like "12 CFR 123.45" or "Title 12, Part 123"
-  const referencePattern = /(\d+)\s*CFR\s*(\d+(?:\.\d+)?)|Title\s*(\d+),?\s*Part\s*(\d+)/g
-  let match
-
-  while ((match = referencePattern.exec(content)) !== null) {
-    const titleNum = match[1] || match[3]
-    const context = content.substring(
-      Math.max(0, match.index - 50),
-      Math.min(content.length, match.index + match[0].length + 50)
-    ).trim()
-
-    // For now, we'll use the source version as the target
-    // This ensures the foreign key constraint is satisfied
-    // TODO: Implement proper version lookup based on title/part
-    const targetId = sourceVersionId
+  // Match various reference patterns:
+  const patterns = [
+    // Standard CFR references
+    /(\d+)\s*CFR\s*(?:part\s*)?(\d+(?:\.\d+)?)/gi,
     
-    references.push({
-      targetId,
-      context,
-      type: 'INTERNAL' // This will be updated when we implement proper agency comparison
+    // Title and Part references
+    /Title\s*(\d+),?\s*Part\s*(\d+)/gi,
+    
+    // Section references
+    /§\s*(\d+\.\d+)/g,
+    
+    // Chapter references
+    /Chapter\s*(\d+)/gi,
+    
+    // Subpart references
+    /Subpart\s*([A-Z])/g
+  ]
+
+  for (const pattern of patterns) {
+    let match
+    while ((match = pattern.exec(content)) !== null) {
+      const titleNum = match[1]
+      const context = content.substring(
+        Math.max(0, match.index - 100),
+        Math.min(content.length, match.index + match[0].length + 100)
+      ).trim()
+
+      // For now, we'll use the source version as the target
+      // This ensures the foreign key constraint is satisfied
+      // TODO: Implement proper version lookup based on title/part
+      const targetId = sourceVersionId
+      
+      references.push({
+        targetId,
+        context,
+        type: 'INTERNAL' // This will be updated when we implement proper agency comparison
+      })
+    }
+  }
+
+  // Log what we found
+  if (references.length > 0) {
+    console.log(`Found ${references.length} references:`)
+    references.forEach((ref, i) => {
+      console.log(`${i + 1}. Context: "${ref.context.substring(0, 100)}..."`)
     })
   }
 
