@@ -13,6 +13,8 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "t": "tsc --noEmit",
     "ingest": "ts-node scripts/ingest/index.ts"
   },
   "prisma": {
