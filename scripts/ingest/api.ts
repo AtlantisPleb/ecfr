@@ -1,7 +1,7 @@
 import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
 import { RateLimiter } from './rateLimiter.js'
 
-const BASE_URL = 'https://www.ecfr.gov/api'
+const BASE_URL = 'https://ecfr.federalregister.gov/api/v1'
 const rateLimiter = new RateLimiter()
 
 class APIError extends Error {
@@ -40,6 +40,9 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
           retryCount++
           continue
         }
+
+        const text = await response.text()
+        console.error(`Error response body:`, text)
         throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
       }
       
@@ -80,11 +83,8 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
   try {
     console.log('Fetching agencies list...')
     const data = await fetchWithRetry(`${BASE_URL}/agencies`)
-    if (!data || !Array.isArray(data.agencies)) {
-      console.error('Invalid agencies response:', data)
-      throw new Error('Invalid agencies response format')
-    }
-    return data.agencies
+    console.log('Raw agencies response:', JSON.stringify(data, null, 2))
+    return data
   } catch (error) {
     console.error('Error fetching agencies:', error)
     throw error
@@ -95,11 +95,8 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
     const data = await fetchWithRetry(`${BASE_URL}/titles`)
-    if (!data || !Array.isArray(data.titles)) {
-      console.error('Invalid titles response:', data)
-      throw new Error('Invalid titles response format')
-    }
-    return data.titles
+    console.log('Raw titles response:', JSON.stringify(data, null, 2))
+    return data
   } catch (error) {
     console.error('Error fetching titles:', error)
     throw error
@@ -107,7 +104,7 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 }
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
-  const url = `${BASE_URL}/structured/title-${titleNumber}/${date}`
+  const url = `${BASE_URL}/title/${titleNumber}/${date}`
   console.log(`Fetching content for Title ${titleNumber}...`)
   
   try {
@@ -142,6 +139,8 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
         }
 
         const data = await response.json()
+        console.log('Raw title content response:', JSON.stringify(data, null, 2))
+
         if (!data) {
           console.error('Empty response for title', titleNumber)
           return null
