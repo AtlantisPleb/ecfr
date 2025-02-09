@@ -88,21 +88,31 @@ export async function main() {
         })
 
         // Process titles
+        let agencyTitlesProcessed = 0
+        const agencyTitlesTotal = agency.cfr_references?.length || 0
+
         if (Array.isArray(agency.cfr_references)) {
           for (const ref of agency.cfr_references) {
             try {
               const title = titles.find(t => t.number === ref.title)
               if (!title) {
+                agencyTitlesProcessed++
                 continue
               }
 
               if (await shouldSkipTitle(title.number, checkpoint)) {
                 processedTitles++
+                agencyTitlesProcessed++
                 continue
               }
 
+              console.log(`Processing Title ${title.number}: ${title.name}`)
+              console.log(`Title Progress for ${agency.name}: ${formatProgress(agencyTitlesProcessed + 1, agencyTitlesTotal)}`)
+              console.log(`Overall Title Progress: ${formatProgress(processedTitles + 1, totalTitles)}`)
+
               const result = await fetchTitleContent(title.number)
               if (!result) {
+                agencyTitlesProcessed++
                 continue
               }
 
@@ -168,6 +178,7 @@ export async function main() {
               }
 
               processedTitles++
+              agencyTitlesProcessed++
               
               // Save progress
               await saveCheckpoint({
