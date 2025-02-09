@@ -1,12 +1,12 @@
-/*
-  Warnings:
+-- First, add the column as nullable
+ALTER TABLE "Agency" ADD COLUMN "slug" TEXT;
 
-  - A unique constraint covering the columns `[slug]` on the table `Agency` will be added. If there are existing duplicate values, this will fail.
-  - Added the required column `slug` to the `Agency` table without a default value. This is not possible if the table is not empty.
+-- Update existing rows with a slug based on the name
+UPDATE "Agency" 
+SET "slug" = LOWER(REGEXP_REPLACE(name, '[^a-zA-Z0-9]+', '-', 'g'));
 
-*/
--- AlterTable
-ALTER TABLE "Agency" ADD COLUMN     "slug" TEXT NOT NULL;
-
--- CreateIndex
+-- Add the unique constraint
 CREATE UNIQUE INDEX "Agency_slug_key" ON "Agency"("slug");
+
+-- Make the column required
+ALTER TABLE "Agency" ALTER COLUMN "slug" SET NOT NULL;
