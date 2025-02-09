@@ -1,4 +1,4 @@
-import Table from '@/components/table'
+import AgenciesPage from './agencies/page'
 
 export default async function Home() {
   return (
@@ -6,7 +6,7 @@ export default async function Home() {
       <h1 className="pt-4 pb-8 bg-gradient-to-br from-black via-[#171717] to-[#575757] bg-clip-text text-center text-4xl font-medium tracking-tight text-transparent">
         eCFR Analyzer
       </h1>
-      <Table />
+      <AgenciesPage />
     </main>
   )
 }
