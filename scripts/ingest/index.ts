@@ -94,21 +94,21 @@ async function processAgency(
   try {
     // Create or update agency
     const dbAgency = await prisma.agency.upsert({
-      where: { id: agency.id },
+      where: { id: agency.slug },
       create: {
-        id: agency.id,
-        name: agency.name
+        id: agency.slug,
+        name: agency.display_name
       },
       update: {
-        name: agency.name
+        name: agency.display_name
       }
     })
 
-    // Process each title for this agency
-    for (const chapter of agency.chapters) {
-      const title = titles.find(t => t.number === chapter.title)
+    // Process each title referenced by this agency
+    for (const ref of agency.cfr_references) {
+      const title = titles.find(t => t.number === ref.title)
       if (!title) {
-        console.log(`Title ${chapter.title} not found, skipping`)
+        console.log(`Title ${ref.title} not found, skipping`)
         continue
       }
 
@@ -122,13 +122,26 @@ async function processAgency(
       processedTitles++
       
       await saveCheckpoint({
-        lastAgencyId: agency.id,
+        lastAgencyId: agency.slug,
         lastTitleNumber: title.number,
         progress: {
           agenciesProcessed: processedAgencies,
           titlesProcessed: processedTitles
         }
       })
+    }
+
+    // Process child agencies if any
+    for (const child of agency.children) {
+      await processAgency(
+        child,
+        titles,
+        checkpoint,
+        totalAgencies,
+        processedAgencies,
+        totalTitles,
+        processedTitles
+      )
     }
   } catch (error) {
     console.error(`Error processing agency ${agency.name}:`, error)
@@ -156,12 +169,12 @@ async function ingestECFR() {
     const totalTitles = titles.length
 
     for (const agency of agencies) {
-      if (!agency.id) {
-        console.warn('Agency missing ID:', agency)
+      if (!agency.slug) {
+        console.warn('Agency missing slug:', agency)
         continue
       }
 
-      if (await shouldSkipAgency(agency.id, checkpoint, prisma)) {
+      if (await shouldSkipAgency(agency.slug, checkpoint, prisma)) {
         console.log(`Skipping already processed agency ${agency.name}`)
         processedAgencies++
         continue
@@ -181,7 +194,7 @@ async function ingestECFR() {
       
       // Update checkpoint after each agency
       await saveCheckpoint({
-        lastAgencyId: agency.id,
+        lastAgencyId: agency.slug,
         lastTitleNumber: null,
         progress: {
           agenciesProcessed: processedAgencies,
