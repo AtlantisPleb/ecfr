@@ -1,7 +1,7 @@
 import { ECFRAgency, ECFRTitle, ProcessedContent } from './types.js'
 import { RateLimiter } from './rateLimiter.js'
 
-const BASE_URL = 'https://ecfr.federalregister.gov/api/v1'
+const BASE_URL = 'https://www.ecfr.gov/api/versioner/v1'
 const rateLimiter = new RateLimiter()
 
 class APIError extends Error {
@@ -82,9 +82,9 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
 export async function fetchAgencies(): Promise<ECFRAgency[]> {
   try {
     console.log('Fetching agencies list...')
-    const data = await fetchWithRetry(`${BASE_URL}/agencies`)
+    const data = await fetchWithRetry(`${BASE_URL}/agencies.json`)
     console.log('Raw agencies response:', JSON.stringify(data, null, 2))
-    return data
+    return data.agencies || []
   } catch (error) {
     console.error('Error fetching agencies:', error)
     throw error
@@ -94,9 +94,9 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
     console.log('Fetching titles list...')
-    const data = await fetchWithRetry(`${BASE_URL}/titles`)
+    const data = await fetchWithRetry(`${BASE_URL}/titles.json`)
     console.log('Raw titles response:', JSON.stringify(data, null, 2))
-    return data
+    return data.titles || []
   } catch (error) {
     console.error('Error fetching titles:', error)
     throw error
@@ -104,7 +104,7 @@ export async function fetchTitles(): Promise<ECFRTitle[]> {
 }
 
 export async function fetchTitleContent(titleNumber: number, date: string = 'current'): Promise<ProcessedContent | null> {
-  const url = `${BASE_URL}/title/${titleNumber}/${date}`
+  const url = `${BASE_URL}/full/${date}/title-${titleNumber}.xml`
   console.log(`Fetching content for Title ${titleNumber}...`)
   
   try {
@@ -138,16 +138,13 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
           throw new APIError(`HTTP error! status: ${response.status}`, response.status, true)
         }
 
-        const data = await response.json()
-        console.log('Raw title content response:', JSON.stringify(data, null, 2))
-
-        if (!data) {
-          console.error('Empty response for title', titleNumber)
-          return null
-        }
-
-        const content = JSON.stringify(data)
-        const wordCount = countWords(data)
+        const content = await response.text()
+        const wordCount = content
+          .replace(/<[^>]*>/g, ' ') // Remove XML tags
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim()
+          .split(/\s+/)
+          .length
 
         console.log(`Successfully fetched Title ${titleNumber} (${wordCount} words)`)
         return {
@@ -178,20 +175,4 @@ export async function fetchTitleContent(titleNumber: number, date: string = 'cur
   }
 
   throw new Error('Max retries exceeded')
-}
-
-function countWords(obj: any): number {
-  if (typeof obj === 'string') {
-    return obj.trim().split(/\s+/).length
-  }
-  
-  if (Array.isArray(obj)) {
-    return obj.reduce((sum: number, item: any) => sum + countWords(item), 0)
-  }
-  
-  if (typeof obj === 'object' && obj !== null) {
-    return Object.values(obj).reduce((sum: number, value: any) => sum + countWords(value), 0)
-  }
-  
-  return 0
 }
