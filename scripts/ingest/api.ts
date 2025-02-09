@@ -21,15 +21,6 @@ class APIError extends Error {
   }
 }
 
-function formatProgress(current: number, total: number): string {
-  const percentage = Math.round((current / total) * 100)
-  const width = 50
-  const filled = Math.round((width * current) / total)
-  const empty = width - filled
-  const bar = '█'.repeat(filled) + '░'.repeat(empty)
-  return `${bar} ${percentage}% (${current}/${total})`
-}
-
 async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
   let retryCount = 0
   let lastError: Error | null = null
@@ -96,7 +87,6 @@ async function fetchWithRetry(url: string, maxRetries = 5): Promise<any> {
 
 export async function fetchAgencies(): Promise<ECFRAgency[]> {
   try {
-    console.log('Fetching agencies list...')
     const data = await fetchWithRetry('/api/admin/v1/agencies.json')
     return data.agencies || []
   } catch (error) {
@@ -107,7 +97,6 @@ export async function fetchAgencies(): Promise<ECFRAgency[]> {
 
 export async function fetchTitles(): Promise<ECFRTitle[]> {
   try {
-    console.log('Fetching titles list...')
     const data = await fetchWithRetry('/api/versioner/v1/titles.json')
     
     if (!data.titles) {
