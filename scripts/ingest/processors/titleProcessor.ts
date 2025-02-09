@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Title } from '@prisma/client'
 import { ECFRTitle, ProcessedContent, TitleProcessingResult } from '../types'
 import { processVersion } from './versionProcessor'
 import { processHierarchy } from './hierarchyProcessor'
@@ -21,7 +21,7 @@ export async function processTitle(
     })
 
     // Check if title exists and get its latest version
-    let titleRecord = await prisma.title.findUnique({
+    const existingTitle = await prisma.title.findUnique({
       where: { number: title.number },
       include: {
         versions: {
@@ -33,10 +33,11 @@ export async function processTitle(
       }
     })
 
-    const oldWordCount = titleRecord?.versions[0]?.wordCount ?? 0
+    const oldWordCount = existingTitle?.versions[0]?.wordCount ?? 0
 
     // Create or update title
-    if (!titleRecord) {
+    let titleRecord: Title
+    if (!existingTitle) {
       console.log('Creating new title record...')
       titleRecord = await prisma.title.create({
         data: {
@@ -51,8 +52,8 @@ export async function processTitle(
       console.log('Created title record:', titleRecord.id)
     } else {
       console.log('Updating existing title record...')
-      await prisma.title.update({
-        where: { id: titleRecord.id },
+      titleRecord = await prisma.title.update({
+        where: { id: existingTitle.id },
         data: {
           name: title.name,
           type: title.type || 'CFR',
