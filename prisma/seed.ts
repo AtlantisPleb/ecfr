@@ -1,40 +1,83 @@
-import prisma from '../lib/prisma'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
 
 async function main() {
-  const response = await Promise.all([
-    prisma.users.upsert({
-      where: { email: 'rauchg@vercel.com' },
-      update: {},
-      create: {
-        name: 'Guillermo Rauch',
-        email: 'rauchg@vercel.com',
-        image:
-          'https://images.ctfassets.net/e5382hct74si/2P1iOve0LZJRZWUzfXpi9r/9d4d27765764fb1ad7379d7cbe5f1043/ucxb4lHy_400x400.jpg',
+  // Create a sample agency
+  const agency = await prisma.agency.upsert({
+    where: { id: 'agency-dot' },
+    update: {},
+    create: {
+      id: 'agency-dot',
+      name: 'Department of Transportation',
+      titles: {
+        create: {
+          number: 49,
+          name: 'Transportation',
+          versions: {
+            create: {
+              content: 'Sample transportation regulation content.',
+              wordCount: 4,
+              date: new Date(),
+              changes: {
+                create: {
+                  type: 'ADD',
+                  section: '1.1',
+                  description: 'Initial version'
+                }
+              }
+            }
+          }
+        }
       },
-    }),
-    prisma.users.upsert({
-      where: { email: 'lee@vercel.com' },
-      update: {},
-      create: {
-        name: 'Lee Robinson',
-        email: 'lee@vercel.com',
-        image:
-          'https://images.ctfassets.net/e5382hct74si/4BtM41PDNrx4z1ml643tdc/7aa88bdde8b5b7809174ea5b764c80fa/adWRdqQ6_400x400.jpg',
+      wordCounts: {
+        create: {
+          count: 4,
+          date: new Date()
+        }
+      }
+    }
+  })
+
+  // Create another sample agency
+  const agency2 = await prisma.agency.upsert({
+    where: { id: 'agency-epa' },
+    update: {},
+    create: {
+      id: 'agency-epa',
+      name: 'Environmental Protection Agency',
+      titles: {
+        create: {
+          number: 40,
+          name: 'Protection of Environment',
+          versions: {
+            create: {
+              content: 'Sample environmental protection regulation content.',
+              wordCount: 5,
+              date: new Date(),
+              changes: {
+                create: {
+                  type: 'ADD',
+                  section: '1.1',
+                  description: 'Initial version'
+                }
+              }
+            }
+          }
+        }
       },
-    }),
-    await prisma.users.upsert({
-      where: { email: 'stey@vercel.com' },
-      update: {},
-      create: {
-        name: 'Steven Tey',
-        email: 'stey@vercel.com',
-        image:
-          'https://images.ctfassets.net/e5382hct74si/4QEuVLNyZUg5X6X4cW4pVH/eb7cd219e21b29ae976277871cd5ca4b/profile.jpg',
-      },
-    }),
-  ])
-  console.log(response)
+      wordCounts: {
+        create: {
+          count: 5,
+          date: new Date()
+        }
+      }
+    }
+  })
+
+  console.log({ agency, agency2 })
 }
+
 main()
   .then(async () => {
     await prisma.$disconnect()
