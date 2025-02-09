@@ -126,16 +126,54 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
   const chapterNodes = contentObj.children || []
   console.log(`Found ${chapterNodes.length} top-level nodes`)
 
+  // Convert Roman numeral to number
+  function romanToNumber(roman: string): number {
+    const romanValues: { [key: string]: number } = {
+      'I': 1, 'V': 5, 'X': 10, 'L': 50,
+      'C': 100, 'D': 500, 'M': 1000
+    }
+
+    let result = 0
+    for (let i = 0; i < roman.length; i++) {
+      const current = romanValues[roman[i]]
+      const next = romanValues[roman[i + 1]]
+      if (next > current) {
+        result += next - current
+        i++
+      } else {
+        result += current
+      }
+    }
+    return result
+  }
+
   for (const node of chapterNodes) {
     // Only process chapter nodes
-    if (!node.label?.toLowerCase().startsWith('chapter')) {
+    if (!node.label?.includes('Chapter')) {
       console.log(`Skipping non-chapter node: ${node.label}`)
       continue
     }
 
+    // Skip reserved chapters
+    if (node.label?.includes('[Reserved]')) {
+      console.log(`Skipping reserved chapter: ${node.label}`)
+      continue
+    }
+
     console.log(`\nParsing Chapter ${node.label}`)
+
+    // Extract Roman numeral from "Chapter I—" or "Chapter I " format
+    const romanMatch = node.label.match(/Chapter\s+([IVXLCDM]+)(?:—|\s|$)/)
+    if (!romanMatch) {
+      console.log(`Could not parse chapter number from: ${node.label}`)
+      continue
+    }
+
+    const chapterNum = romanToNumber(romanMatch[1])
+    console.log(`Parsed chapter number ${chapterNum} from ${romanMatch[1]}`)
+
     const chapter: ECFRChapter = {
-      number: parseInt(node.label.split(' ')[1]),
+      number: chapterNum,
       name: node.label_description || node.label,
       parts: []
     }
@@ -152,8 +190,14 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
       }
 
       console.log(`Parsing Part ${partNode.label}`)
+      const partMatch = partNode.label.match(/Part\s+(\d+)/)
+      if (!partMatch) {
+        console.log(`Could not parse part number from: ${partNode.label}`)
+        continue
+      }
+
       const part: ECFRPart = {
-        number: parseInt(partNode.label.split(' ')[1]),
+        number: parseInt(partMatch[1]),
         name: partNode.label_description || partNode.label,
         subparts: []
       }
@@ -181,14 +225,20 @@ function parseStructure(contentObj: any): { chapters: ECFRChapter[] } {
 
         for (const sectionNode of sectionNodes) {
           // Only process section nodes
-          if (!sectionNode.label?.toLowerCase().startsWith('§')) {
+          if (!sectionNode.label?.includes('§')) {
             console.log(`Skipping non-section node: ${sectionNode.label}`)
             continue
           }
 
           console.log(`Parsing Section ${sectionNode.label}`)
+          const sectionMatch = sectionNode.label.match(/§\s*(\d+\.\d+)/)
+          if (!sectionMatch) {
+            console.log(`Could not parse section number from: ${sectionNode.label}`)
+            continue
+          }
+
           const section: ECFRSection = {
-            number: sectionNode.label.replace('§', '').trim(),
+            number: sectionMatch[1],
             name: sectionNode.label_description || sectionNode.label,
             content: sectionNode.content || ''
           }
