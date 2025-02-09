@@ -4,6 +4,16 @@ import { ensureTitleExists, processTitleContent } from './processors/titleProces
 import { fetchAgencies, fetchTitles } from './api'
 import { loadCheckpoint, saveCheckpoint, shouldSkipAgency, shouldSkipTitle } from './checkpoint'
 
+function formatProgress(current: number, total: number): string {
+  const adjustedCurrent = Math.min(current, total)
+  const percentage = Math.round((adjustedCurrent / total) * 100)
+  const width = 50
+  const filled = Math.round((width * adjustedCurrent) / total)
+  const empty = Math.max(0, width - filled)
+  const bar = '█'.repeat(filled) + '░'.repeat(empty)
+  return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
+}
+
 export async function main() {
   try {
     console.log('Starting eCFR ingestion...')
@@ -19,7 +29,9 @@ export async function main() {
     let titles = []
 
     try {
+      console.log('Fetching agencies list...')
       agencies = await fetchAgencies()
+      console.log('Fetching titles list...')
       titles = await fetchTitles()
     } catch (error) {
       console.error('Failed to fetch initial data:', error)
@@ -41,10 +53,12 @@ export async function main() {
 
     // First, ensure all titles exist
     console.log('Creating/updating titles...')
+    let titleCounter = 0
     for (const title of titles) {
-      await ensureTitleExists(prisma, title)
+      titleCounter++
+      await ensureTitleExists(prisma, title, titleCounter, titles.length)
     }
-    console.log('Titles created/updated successfully')
+    console.log('\\nTitles created/updated successfully')
 
     // Process agencies
     for (const agency of agencies) {
@@ -135,14 +149,4 @@ export async function main() {
   } finally {
     await disconnectDB()
   }
-}
-
-function formatProgress(current: number, total: number): string {
-  const adjustedCurrent = Math.min(current, total)
-  const percentage = Math.round((adjustedCurrent / total) * 100)
-  const width = 50
-  const filled = Math.round((width * adjustedCurrent) / total)
-  const empty = Math.max(0, width - filled)
-  const bar = '█'.repeat(filled) + '░'.repeat(empty)
-  return `${bar} ${percentage}% (${adjustedCurrent}/${total})`
 }
