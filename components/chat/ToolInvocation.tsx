@@ -3,8 +3,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-  DialogTrigger
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+    DialogTrigger
 } from "@/components/ui/dialog"
 
 interface JSONValue {
@@ -90,6 +90,9 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   const summary = outputObject?.summary || outputObject?.value?.result?.summary || outputObject?.value?.result?.details || "---";
   const details = outputObject?.details || outputObject?.value?.result?.details;
   const content = outputObject?.content;
+
+  console.log({ summary, details, content })
+
   const fileContent = outputObject?.content;
 
   return (
