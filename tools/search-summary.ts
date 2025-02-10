@@ -26,9 +26,8 @@ type SearchSummary = {
 
 type Result = {
   success: boolean;
-  summary?: SearchSummary;
-  error?: string;
-  summary_text: string;
+  content: string;
+  summary: string;
   details: string;
 };
 
@@ -71,8 +70,8 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
         if (response.status === 400) {
           return {
             success: false,
-            error: "Invalid search query. Please check your search terms and try again.",
-            summary_text: "Search query validation failed",
+            content: "Invalid search query. Please check your search terms and try again.",
+            summary: "Search query validation failed",
             details: `The search summary API rejected the query: ${errorText}`
           };
         }
@@ -86,16 +85,29 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
       if (!data || typeof data.totalResults !== 'number' || !Array.isArray(data.topTerms)) {
         throw new Error('Search summary API returned invalid response format');
       }
+
+      const summaryData: SearchSummary = {
+        totalResults: data.totalResults,
+        processingTimeMs: data.processingTimeMs,
+        topTerms: data.topTerms,
+        dateRange: data.dateRange
+      };
+      
+      // Format the content as a readable string
+      const formattedContent = [
+        `Total Results: ${summaryData.totalResults}`,
+        `Processing Time: ${summaryData.processingTimeMs}ms`,
+        '',
+        'Top Terms:',
+        ...summaryData.topTerms.map(term => `- ${term.term} (${term.count} occurrences)`),
+        '',
+        summaryData.dateRange ? `Date Range: ${summaryData.dateRange.start} to ${summaryData.dateRange.end}` : ''
+      ].filter(Boolean).join('\n');
       
       return {
         success: true,
-        summary: {
-          totalResults: data.totalResults,
-          processingTimeMs: data.processingTimeMs,
-          topTerms: data.topTerms,
-          dateRange: data.dateRange
-        },
-        summary_text: `Found ${data.totalResults} results in ${data.processingTimeMs}ms`,
+        content: formattedContent,
+        summary: `Found ${data.totalResults} results in ${data.processingTimeMs}ms`,
         details: `Search summary for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
         }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""} with ${data.topTerms.length} top terms`
@@ -105,8 +117,8 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
       console.error("Search summary error:", errorMessage);
       return {
         success: false,
-        error: errorMessage,
-        summary_text: "Failed to get search summary",
+        content: errorMessage,
+        summary: "Failed to get search summary",
         details: `Error getting search summary: ${errorMessage}`
       };
     }
