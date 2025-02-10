@@ -11,7 +11,7 @@ function ChatPageInner() {
   const initialQuery = searchParams.get("q")
   const hasInitialized = useRef(false)
 
-  const { messages, append, isLoading, error } = useChat({
+  const { messages, append, isLoading, error, addToolResult } = useChat({
     api: "/api/chat",
     keepLastMessageOnError: true,
     maxSteps: 20,
@@ -20,6 +20,41 @@ function ChatPageInner() {
     },
     onError: (error) => {
       console.error("Chat error:", error)
+    },
+    onToolCall: async ({ toolCall }) => {
+      console.log("Tool call received:", toolCall)
+      
+      // Execute the tool and get the result
+      try {
+        const response = await fetch('/api/tools', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            toolName: toolCall.toolName,
+            args: toolCall.args,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Tool execution failed: ${response.statusText}`)
+        }
+
+        const result = await response.json()
+        console.log("Tool result:", result)
+
+        // Add the tool result to the chat
+        addToolResult({
+          toolCallId: toolCall.toolCallId,
+          result: result
+        })
+
+        return result
+      } catch (error) {
+        console.error("Tool execution error:", error)
+        throw error
+      }
     }
   })
 
