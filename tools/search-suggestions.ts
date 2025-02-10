@@ -19,8 +19,7 @@ type Suggestion = {
 
 type Result = {
   success: boolean;
-  suggestions?: Suggestion[];
-  error?: string;
+  content: string;
   summary: string;
   details: string;
 };
@@ -64,7 +63,7 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
         if (response.status === 400) {
           return {
             success: false,
-            error: "Invalid search query. Please check your search terms and try again.",
+            content: "Invalid search query. Please check your search terms and try again.",
             summary: "Search query validation failed",
             details: `The search suggestions API rejected the query: ${errorText}`
           };
@@ -79,11 +78,22 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
       if (!data || !Array.isArray(data.suggestions)) {
         throw new Error('Search suggestions API returned invalid response format');
       }
+
+      const suggestions: Suggestion[] = data.suggestions;
+      
+      // Format the content as a readable string
+      const formattedContent = [
+        `Found ${suggestions.length} suggestions:`,
+        '',
+        ...suggestions.map(suggestion => 
+          `- ${suggestion.text} (score: ${suggestion.score.toFixed(2)}, frequency: ${suggestion.frequency})`
+        )
+      ].join('\n');
       
       return {
         success: true,
-        suggestions: data.suggestions,
-        summary: `Found ${data.suggestions.length} search suggestions`,
+        content: formattedContent,
+        summary: `Found ${suggestions.length} search suggestions`,
         details: `Search suggestions for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
         }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
@@ -93,7 +103,7 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
       console.error("Search suggestions error:", errorMessage);
       return {
         success: false,
-        error: errorMessage,
+        content: errorMessage,
         summary: "Failed to get search suggestions",
         details: `Error getting search suggestions: ${errorMessage}`
       };
