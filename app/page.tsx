@@ -1,10 +1,10 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { ArrowRight } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { KeyboardEvent, useState } from 'react'
+import { ArrowRight } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { KeyboardEvent, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function Home() {
   const [query, setQuery] = useState('')
@@ -30,9 +30,10 @@ export default function Home() {
         <h1 className="text-center text-4xl font-medium">
           ChatCFR
         </h1>
-        
+
         <div className="relative">
-          <Textarea 
+          <Textarea
+            autoFocus={true}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
