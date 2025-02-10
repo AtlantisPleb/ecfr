@@ -29,7 +29,9 @@
       "get": {
         "summary": "Agencies",
         "description": "All top-level agencies in name order with children also in name order",
-        "tags": ["Admin Service"],
+        "tags": [
+          "Admin Service"
+        ],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -93,7 +95,9 @@
       "get": {
         "summary": "Corrections route returns all eCFR corrections",
         "description": "The Corrections service can be used to determine all corrections or can be filtered by title, effective date, or correction date.",
-        "tags": ["Admin Service"],
+        "tags": [
+          "Admin Service"
+        ],
         "parameters": [
           {
             "name": "date",
@@ -154,7 +158,9 @@
       "get": {
         "summary": "Corrections title route returns all corrections for the supplied title",
         "description": "The Corrections service can be used to determine all corrections for the given title.",
-        "tags": ["Admin Service"],
+        "tags": [
+          "Admin Service"
+        ],
         "parameters": [
           {
             "name": "title",
@@ -194,7 +200,9 @@
     "/api/search/v1/results": {
       "get": {
         "summary": "Search results",
-        "tags": ["Search Service"],
+        "tags": [
+          "Search Service"
+        ],
         "parameters": [
           {
             "name": "query",
@@ -305,7 +313,10 @@
             "schema": {
               "type": "string",
               "default": "results",
-              "enum": ["date", "results"]
+              "enum": [
+                "date",
+                "results"
+              ]
             }
           }
         ],
