@@ -1,4 +1,5 @@
-import { StreamingTextResponse, Message, convertToCoreMessages, streamText } from "ai"
+import { StreamingTextResponse, Message, convertToCoreMessages } from "ai"
+import Anthropic from '@anthropic-ai/sdk'
 import { getTools } from "@/tools"
 import { ToolContext } from "@/types"
 
@@ -24,8 +25,12 @@ export async function POST(req: Request) {
       })
     }
 
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
+
     const toolContext = new ToolContext(
-      { modelId: "claude-3-5-sonnet-20241022" }
+      { modelId: "claude-3-sonnet" }
     )
 
     const tools = getTools(toolContext, ["search_results", "list_agencies"])
@@ -42,18 +47,28 @@ Keep responses clear and concise.`
 
     console.log("Making request to Anthropic")
     
-    const coreMessages = convertToCoreMessages(messages)
-    const result = await streamText({
-      messages: coreMessages,
-      model: toolContext.model,
-      system: systemPrompt,
-      tools,
-      onFinish: (completion) => {
-        console.log("Chat completion finished:", completion)
-      },
+    const stream = await anthropic.messages.create({
+      messages: [
+        {
+          role: "user",
+          content: systemPrompt
+        },
+        ...messages.map((msg: any) => ({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        }))
+      ],
+      model: "claude-3-sonnet",
+      max_tokens: 1024,
+      stream: true,
+      tools: Object.values(tools).map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
+      }))
     })
 
-    return result.toDataStreamResponse()
+    return new StreamingTextResponse(stream)
   } catch (error) {
     console.error("Error in chat route:", error)
     return new Response(JSON.stringify({ error: "Error processing chat request" }), { 
