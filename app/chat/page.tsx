@@ -51,12 +51,6 @@ function ChatPageInner() {
 
   return (
     <div className="flex-1 space-y-6">
-      <div className="space-y-4 px-4">
-        <h1 className="text-2xl font-bold text-center">eCFR Chat</h1>
-        <p className="text-muted-foreground text-center">
-          Ask questions about federal regulations
-        </p>
-      </div>
 
       <ChatMessages messages={messages} isLoading={isLoading} />
 
