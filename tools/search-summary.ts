@@ -11,24 +11,10 @@ const params = z.object({
 
 type Params = z.infer<typeof params>;
 
-type SearchSummary = {
-  totalResults: number;
-  processingTimeMs: number;
-  topTerms: Array<{
-    term: string;
-    count: number;
-  }>;
-  dateRange?: {
-    start: string;
-    end: string;
-  };
-};
-
 type Result = {
   success: boolean;
-  summary?: SearchSummary;
-  error?: string;
-  summary_text: string;
+  content: string;
+  summary: string;
   details: string;
 };
 
@@ -54,59 +40,36 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
         });
       }
 
-      console.log("Making summary request:", searchParams.toString());
-
       const response = await fetch(
         `https://www.ecfr.gov/api/search/v1/summary?${searchParams.toString()}`
       );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Search summary API error:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-
-        if (response.status === 400) {
-          return {
-            success: false,
-            error: "Invalid search query. Please check your search terms and try again.",
-            summary_text: "Search query validation failed",
-            details: `The search summary API rejected the query: ${errorText}`
-          };
-        }
-
-        throw new Error(`Search summary API returned ${response.status}: ${response.statusText}\n${errorText}`);
+        return {
+          success: false,
+          content: errorText,
+          summary: "Search summary request failed",
+          details: `API returned ${response.status}: ${response.statusText}`
+        };
       }
 
       const data = await response.json();
-
-      // Validate response format
-      if (!data || typeof data.totalResults !== 'number' || !Array.isArray(data.topTerms)) {
-        throw new Error('Search summary API returned invalid response format');
-      }
       
       return {
         success: true,
-        summary: {
-          totalResults: data.totalResults,
-          processingTimeMs: data.processingTimeMs,
-          topTerms: data.topTerms,
-          dateRange: data.dateRange
-        },
-        summary_text: `Found ${data.totalResults} results in ${data.processingTimeMs}ms`,
+        content: JSON.stringify(data, null, 2),
+        summary: "Retrieved search summary",
         details: `Search summary for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
-        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""} with ${data.topTerms.length} top terms`
+        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Search summary error:", errorMessage);
       return {
         success: false,
-        error: errorMessage,
-        summary_text: "Failed to get search summary",
+        content: errorMessage,
+        summary: "Failed to get search summary",
         details: `Error getting search summary: ${errorMessage}`
       };
     }

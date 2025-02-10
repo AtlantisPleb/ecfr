@@ -1,6 +1,4 @@
-import {
-  convertToCoreMessages, Message, StreamingTextResponse, streamText
-} from "ai"
+import { convertToCoreMessages, Message, StreamData, streamText } from "ai"
 import { getTools } from "@/tools"
 import { ToolContext } from "@/types"
 import { anthropic } from "@ai-sdk/anthropic"
@@ -71,16 +69,32 @@ Use the most appropriate tool(s) for each query.`
     console.log("Initialized tools:", Object.keys(tools))
 
     const messages = convertToCoreMessages(json.messages as Message[])
+    const data = new StreamData()
 
     console.log("Making request to Anthropic")
     const result = await streamText({
       messages,
       model: anthropic('claude-3-5-sonnet-20241022'),
       system: systemPrompt,
-      tools
+      tools,
+      // @ts-ignore
+      onToolCall: async ({ toolCall, toolResult }) => {
+        console.log('Tool call:', toolCall)
+        console.log('Tool result:', toolResult)
+        data.appendMessageAnnotation({
+          type: 'tool-result',
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          result: toolResult
+        })
+      },
+      onFinish: () => {
+        console.log('Closing data stream')
+        data.close()
+      }
     })
 
-    return result.toDataStreamResponse();
+    return result.toDataStreamResponse({ data });
 
   } catch (error) {
     console.error("Error in chat route:", error)

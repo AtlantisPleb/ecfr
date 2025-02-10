@@ -11,25 +11,9 @@ const params = z.object({
 
 type Params = z.infer<typeof params>;
 
-type SearchResult = {
-  title: string;
-  section: string;
-  content: string;
-  hierarchy: {
-    title: string;
-    chapter: string;
-    part: string;
-    subpart?: string;
-    section: string;
-  };
-  url: string;
-  score: number;
-};
-
 type Result = {
   success: boolean;
-  results?: SearchResult[];
-  error?: string;
+  content: string;
   summary: string;
   details: string;
 };
@@ -56,48 +40,35 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         });
       }
 
-      console.log("Making search request:", searchParams.toString());
-
       const response = await fetch(
         `https://www.ecfr.gov/api/search/v1/results?${searchParams.toString()}`
       );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Search API error:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-
-        if (response.status === 400) {
-          return {
-            success: false,
-            error: "Invalid search query. Please check your search terms and try again.",
-            summary: "Search query validation failed",
-            details: `The search API rejected the query: ${errorText}`
-          };
-        }
-
-        throw new Error(`Search API returned ${response.status}: ${response.statusText}\n${errorText}`);
+        return {
+          success: false,
+          content: errorText,
+          summary: "Search request failed",
+          details: `API returned ${response.status}: ${response.statusText}`
+        };
       }
 
       const data = await response.json();
       
       return {
         success: true,
-        results: data.results,
-        summary: `Found ${data.results.length} matching regulations`,
-        details: `Search results for query "${query}"${date ? ` as of ${date}` : ""}${
+        content: JSON.stringify(data, null, 2),
+        summary: "Retrieved search results",
+        details: `Search results for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
         }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Search error:", errorMessage);
       return {
         success: false,
-        error: errorMessage,
+        content: errorMessage,
         summary: "Failed to search regulations",
         details: `Error searching eCFR content: ${errorMessage}`
       };

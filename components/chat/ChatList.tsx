@@ -25,10 +25,20 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
   const renderMessage = (message: Message, index: number) => {
     if (!message) return null;
 
+    console.log('========= MESSAGE START =========');
+    console.log('Message:', message);
+
     const isAssistantMessage = message.role === 'assistant';
     const hasToolInvocations = isAssistantMessage && message.toolInvocations && message.toolInvocations.length > 0;
     const hasContent = message.content && message.content.trim() !== '';
-    
+
+    console.log('Message flags:', {
+      isAssistantMessage,
+      hasToolInvocations,
+      hasContent,
+      toolInvocations: message.toolInvocations
+    });
+
     if (!hasContent && !hasToolInvocations) return null;
 
     return (
@@ -41,22 +51,22 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
           {hasToolInvocations && !hasContent && (
             <div className="flex-grow">
               {message.toolInvocations?.map((invocation: any, invIndex) => {
-                // Extract tool name from function_call or use toolName
+                console.log('Rendering tool invocation (no content):', invocation);
                 const toolName = invocation.function_call?.name || invocation.toolName;
-                // Extract args from function_call or use args
-                const args = invocation.function_call?.arguments 
+                const args = invocation.function_call?.arguments
                   ? JSON.parse(invocation.function_call.arguments)
                   : invocation.args;
 
                 return (
-                  <ToolInvocation 
-                    key={`${invocation.id || invocation.toolCallId}-${invIndex}`} 
+                  <ToolInvocation
+                    key={`${invocation.id || invocation.toolCallId}-${invIndex}`}
                     toolInvocation={{
                       toolCallId: invocation.id || invocation.toolCallId,
                       toolName,
                       args,
                       state: invocation.state,
-                    }} 
+                      result: invocation.result
+                    }}
                   />
                 );
               })}
@@ -67,22 +77,22 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
         {hasToolInvocations && hasContent && (
           <div className="mt-1">
             {message.toolInvocations?.map((invocation: any, invIndex) => {
-              // Extract tool name from function_call or use toolName
+              console.log('Rendering tool invocation (with content):', invocation);
               const toolName = invocation.function_call?.name || invocation.toolName;
-              // Extract args from function_call or use args
-              const args = invocation.function_call?.arguments 
+              const args = invocation.function_call?.arguments
                 ? JSON.parse(invocation.function_call.arguments)
                 : invocation.args;
 
               return (
-                <ToolInvocation 
-                  key={`${invocation.id || invocation.toolCallId}-${invIndex}`} 
+                <ToolInvocation
+                  key={`${invocation.id || invocation.toolCallId}-${invIndex}`}
                   toolInvocation={{
                     toolCallId: invocation.id || invocation.toolCallId,
                     toolName,
                     args,
                     state: invocation.state,
-                  }} 
+                    result: invocation.result
+                  }}
                 />
               );
             })}

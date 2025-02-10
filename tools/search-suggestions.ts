@@ -11,16 +11,9 @@ const params = z.object({
 
 type Params = z.infer<typeof params>;
 
-type Suggestion = {
-  text: string;
-  score: number;
-  frequency: number;
-};
-
 type Result = {
   success: boolean;
-  suggestions?: Suggestion[];
-  error?: string;
+  content: string;
   summary: string;
   details: string;
 };
@@ -47,53 +40,35 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
         });
       }
 
-      console.log("Making suggestions request:", searchParams.toString());
-
       const response = await fetch(
         `https://www.ecfr.gov/api/search/v1/suggestions?${searchParams.toString()}`
       );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Search suggestions API error:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-
-        if (response.status === 400) {
-          return {
-            success: false,
-            error: "Invalid search query. Please check your search terms and try again.",
-            summary: "Search query validation failed",
-            details: `The search suggestions API rejected the query: ${errorText}`
-          };
-        }
-
-        throw new Error(`Search suggestions API returned ${response.status}: ${response.statusText}\n${errorText}`);
+        return {
+          success: false,
+          content: errorText,
+          summary: "Search suggestions request failed",
+          details: `API returned ${response.status}: ${response.statusText}`
+        };
       }
 
       const data = await response.json();
-
-      // Validate response format
-      if (!data || !Array.isArray(data.suggestions)) {
-        throw new Error('Search suggestions API returned invalid response format');
-      }
       
       return {
         success: true,
-        suggestions: data.suggestions,
-        summary: `Found ${data.suggestions.length} search suggestions`,
+        content: JSON.stringify(data, null, 2),
+        summary: "Retrieved search suggestions",
         details: `Search suggestions for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
         }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Search suggestions error:", errorMessage);
       return {
         success: false,
-        error: errorMessage,
+        content: errorMessage,
         summary: "Failed to get search suggestions",
         details: `Error getting search suggestions: ${errorMessage}`
       };

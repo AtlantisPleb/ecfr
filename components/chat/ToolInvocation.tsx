@@ -3,8 +3,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-  DialogTrigger
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+    DialogTrigger
 } from "@/components/ui/dialog"
 
 interface JSONValue {
@@ -12,14 +12,16 @@ interface JSONValue {
 }
 
 export interface ToolInvocation {
-  toolCallId: string;
-  toolName: string;
-  args: JSONValue;
-  state?: 'partial-call' | 'call' | 'result';
+  id?: string;
+  toolCallId?: string;
+  tool_name?: string;
+  toolName?: string;
   input?: JSONValue;
+  args?: JSONValue;
   output?: JSONValue;
   result?: JSONValue;
   status?: 'pending' | 'completed' | 'failed';
+  state?: 'call' | 'result';
 }
 
 const ensureObject = (value: JSONValue): Record<string, any> => {
@@ -37,8 +39,12 @@ const ensureObject = (value: JSONValue): Record<string, any> => {
 };
 
 export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocation }) {
+  // console.log('========= TOOL INVOCATION START =========');
+  // console.log('Raw toolInvocation:', toolInvocation);
+
   const [isFileContentDialogOpen, setIsFileContentDialogOpen] = useState(false);
   const [isInputParamsDialogOpen, setIsInputParamsDialogOpen] = useState(false);
+  const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
 
   if (!toolInvocation || typeof toolInvocation !== 'object') {
     console.error("Invalid toolInvocation prop:", toolInvocation);
@@ -46,7 +52,9 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   }
 
   const {
+    id,
     toolCallId,
+    tool_name,
     toolName,
     input,
     args,
@@ -56,19 +64,46 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     state
   } = toolInvocation;
 
-  const displayName = toolName;
-  const displayInput = input || args;
+  // console.log('Destructured values:', {
+  //   id,
+  //   toolCallId,
+  //   tool_name,
+  //   toolName,
+  //   input,
+  //   args,
+  //   output,
+  //   result,
+  //   status,
+  //   state
+  // });
+
+  const displayId = id || toolCallId;
+  const displayName = tool_name || toolName;
+  const displayInput = input || args as JSONValue;
   const displayOutput = output || result;
   const displayStatus = status || (state === 'result' ? 'completed' : 'pending');
 
+  // console.log('Display values:', {
+  //   displayId,
+  //   displayName,
+  //   displayInput,
+  //   displayOutput,
+  //   displayStatus
+  // });
+
   const inputObject = ensureObject(displayInput);
+  // console.log('Input object:', inputObject);
+
   const outputObject = displayOutput ? ensureObject(displayOutput) : null;
+  // console.log('Output object:', outputObject);
 
   const { owner, repo, branch } = inputObject;
 
   const repoInfo = owner && repo && branch
     ? `${owner}/${repo} (${branch})`
     : null;
+
+  // console.log('Repo info:', repoInfo);
 
   const renderStateIcon = () => {
     if (displayStatus === 'pending') {
@@ -81,9 +116,22 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     return null;
   };
 
-  const summary = outputObject?.summary || outputObject?.value?.result?.summary || outputObject?.value?.result?.details || "---";
+  // console.log("toolInvocation:", toolInvocation)
 
-  const fileContent = outputObject?.content;
+  // Extract result fields from the output object
+  const resultContent = result?.content || outputObject?.content;
+  const resultSummary = result?.summary || outputObject?.summary;
+  const resultDetails = result?.details || outputObject?.details;
+
+  // console.log('Result fields:', {
+  //   resultContent,
+  //   resultSummary,
+  //   resultDetails,
+  //   rawOutput: outputObject,
+  //   rawResult: result
+  // });
+
+  // console.log('========= TOOL INVOCATION END =========');
 
   return (
     <Card className="text-xs mb-2">
@@ -101,7 +149,7 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
         </div>
       </CardHeader>
       <CardContent>
-        {summary && <p className="mb-2">{summary}</p>}
+        {resultSummary && <p className="mb-2">{resultSummary}</p>}
         <div className="flex space-x-2">
           <Dialog open={isInputParamsDialogOpen} onOpenChange={setIsInputParamsDialogOpen}>
             <DialogTrigger asChild>
@@ -122,24 +170,40 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
               </pre>
             </DialogContent>
           </Dialog>
-          {fileContent && (
-            <Dialog open={isFileContentDialogOpen} onOpenChange={setIsFileContentDialogOpen}>
+
+          {(resultContent || resultDetails) && (
+            <Dialog open={isResultDialogOpen} onOpenChange={setIsResultDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <FileText className="w-4 h-4 mr-2" />
-                  View File Content
+                  View Result
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>File Content</DialogTitle>
+                  <DialogTitle>Tool Result</DialogTitle>
                   <DialogDescription>
-                    View the content of the file returned by this tool
+                    View the complete result from this tool invocation
                   </DialogDescription>
                 </DialogHeader>
-                <pre className="text-xs whitespace-pre-wrap break-all">
-                  {JSON.stringify(fileContent, null, 2)}
-                </pre>
+                <div className="space-y-4">
+                  {resultContent && (
+                    <div>
+                      <h4 className="font-medium mb-2">Content:</h4>
+                      <pre className="text-xs whitespace-pre-wrap break-all bg-secondary p-4 rounded-md">
+                        {resultContent}
+                      </pre>
+                    </div>
+                  )}
+                  {resultDetails && (
+                    <div>
+                      <h4 className="font-medium mb-2">Details:</h4>
+                      <pre className="text-xs whitespace-pre-wrap break-all bg-secondary p-4 rounded-md">
+                        {resultDetails}
+                      </pre>
+                    </div>
+                  )}
+                </div>
               </DialogContent>
             </Dialog>
           )}
