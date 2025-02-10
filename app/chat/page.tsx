@@ -1,10 +1,10 @@
 "use client"
 
 import { useChat } from "ai/react"
+import { useSearchParams } from "next/navigation"
+import { Suspense, useEffect } from "react"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessages } from "@/components/chat/ChatMessages"
-import { useSearchParams } from "next/navigation"
-import { useEffect, Suspense } from "react"
 
 function ChatPageInner() {
   const searchParams = useSearchParams()
@@ -12,6 +12,8 @@ function ChatPageInner() {
 
   const { messages, append, isLoading, error } = useChat({
     api: "/api/chat",
+    keepLastMessageOnError: true,
+    maxSteps: 20,
     onFinish: (message) => {
       console.log("Chat finished:", message)
     },
