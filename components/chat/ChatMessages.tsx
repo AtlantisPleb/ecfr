@@ -1,6 +1,7 @@
 "use client"
 
 import { Message } from "ai"
+import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
 
 export interface ChatMessagesProps {
@@ -26,13 +27,13 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
                 : "bg-muted"
             )}
           >
-            <span className="font-semibold">
-              {message.role === "user" ? "You: " : "Assistant: "}
+            <span className="text-sm">
+              {message.role === "user" ? "> " : ""}
             </span>
             <div className="flex-1 space-y-2">
-              <p className="prose break-words">
+              <ReactMarkdown className="prose break-words text-sm">
                 {message.content}
-              </p>
+              </ReactMarkdown>
             </div>
           </div>
         ))}
