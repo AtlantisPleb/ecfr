@@ -45,8 +45,8 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
                   key={`${invocation.toolCallId}-${invIndex}`} 
                   toolInvocation={{
                     toolCallId: invocation.toolCallId,
-                    toolName: invocation.name,
-                    args: invocation.parameters,
+                    toolName: invocation.toolName,
+                    args: invocation.args,
                     state: invocation.state,
                   }} 
                 />
@@ -62,8 +62,8 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
                 key={`${invocation.toolCallId}-${invIndex}`} 
                 toolInvocation={{
                   toolCallId: invocation.toolCallId,
-                  toolName: invocation.name,
-                  args: invocation.parameters,
+                  toolName: invocation.toolName,
+                  args: invocation.args,
                   state: invocation.state,
                 }} 
               />
