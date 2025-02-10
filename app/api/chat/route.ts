@@ -1,5 +1,4 @@
-import { StreamingTextResponse, Message } from "ai"
-import { experimental_buildAnthropicStream } from "ai/streams"
+import { StreamingTextResponse, Message, convertToCoreMessages, streamText } from "ai"
 import { getTools } from "@/tools"
 import { ToolContext } from "@/types"
 
@@ -42,45 +41,19 @@ If you're not sure about something, say so.
 Keep responses clear and concise.`
 
     console.log("Making request to Anthropic")
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
+    
+    const coreMessages = convertToCoreMessages(messages)
+    const result = await streamText({
+      messages: coreMessages,
+      model: toolContext.model,
+      system: systemPrompt,
+      tools,
+      onFinish: (completion) => {
+        console.log("Chat completion finished:", completion)
       },
-      body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022",
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
-          ...messages,
-        ],
-        stream: true,
-        tools: Object.values(tools).map(tool => ({
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters
-        })),
-      }),
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      console.error("Anthropic API error:", error)
-      return new Response(JSON.stringify({ error: "Error from AI service" }), { 
-        status: response.status,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-    }
-
-    console.log("Got response from Anthropic, building stream")
-    const stream = experimental_buildAnthropicStream(response)
-    return new StreamingTextResponse(stream)
+    return result.toDataStreamResponse()
   } catch (error) {
     console.error("Error in chat route:", error)
     return new Response(JSON.stringify({ error: "Error processing chat request" }), { 
