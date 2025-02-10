@@ -39,6 +39,9 @@ const ensureObject = (value: JSONValue): Record<string, any> => {
 };
 
 export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocation }) {
+  console.log('========= TOOL INVOCATION START =========');
+  console.log('Raw toolInvocation:', toolInvocation);
+
   const [isFileContentDialogOpen, setIsFileContentDialogOpen] = useState(false);
   const [isInputParamsDialogOpen, setIsInputParamsDialogOpen] = useState(false);
   const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
@@ -61,22 +64,46 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     state
   } = toolInvocation;
 
+  console.log('Destructured values:', {
+    id,
+    toolCallId,
+    tool_name,
+    toolName,
+    input,
+    args,
+    output,
+    result,
+    status,
+    state
+  });
+
   const displayId = id || toolCallId;
   const displayName = tool_name || toolName;
   const displayInput = input || args as JSONValue;
   const displayOutput = output || result;
   const displayStatus = status || (state === 'result' ? 'completed' : 'pending');
 
-  const inputObject = ensureObject(displayInput);
-  const outputObject = displayOutput ? ensureObject(displayOutput) : null;
+  console.log('Display values:', {
+    displayId,
+    displayName,
+    displayInput,
+    displayOutput,
+    displayStatus
+  });
 
-  console.log('Tool invocation output:', outputObject);
+  const inputObject = ensureObject(displayInput);
+  console.log('Input object:', inputObject);
+
+  const outputObject = displayOutput ? ensureObject(displayOutput) : null;
+  console.log('Output object:', outputObject);
 
   const { owner, repo, branch } = inputObject;
 
   const repoInfo = owner && repo && branch
     ? `${owner}/${repo} (${branch})`
     : null;
+
+  console.log('Repo info:', repoInfo);
 
   const renderStateIcon = () => {
     if (displayStatus === 'pending') {
@@ -94,11 +121,14 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   const resultSummary = outputObject?.summary || outputObject?.value?.summary;
   const resultDetails = outputObject?.details || outputObject?.value?.details;
 
-  console.log('Extracted result fields:', {
-    content: resultContent,
-    summary: resultSummary,
-    details: resultDetails
+  console.log('Result fields:', {
+    resultContent,
+    resultSummary,
+    resultDetails,
+    rawOutput: outputObject
   });
+
+  console.log('========= TOOL INVOCATION END =========');
 
   return (
     <Card className="text-xs mb-2">
