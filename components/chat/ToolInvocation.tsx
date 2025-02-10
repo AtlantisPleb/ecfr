@@ -6,13 +6,13 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog"
+import { ToolCall } from "ai"
 
 interface JSONValue {
   [key: string]: any;
 }
 
-export interface ToolInvocation {
-  id?: string;
+export interface ToolInvocation extends ToolCall<string, any> {
   toolCallId?: string;
   tool_name?: string;
   toolName?: string;
@@ -21,7 +21,6 @@ export interface ToolInvocation {
   output?: JSONValue;
   result?: JSONValue;
   status?: 'pending' | 'completed' | 'failed';
-  state?: 'call' | 'result';
 }
 
 const ensureObject = (value: JSONValue): Record<string, any> => {
@@ -61,8 +60,8 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   } = toolInvocation;
 
   const displayId = id || toolCallId;
-  const displayName = tool_name || toolName;
-  const displayInput = input || args as JSONValue;
+  const displayName = tool_name || toolName || toolInvocation.name;
+  const displayInput = input || args || toolInvocation.parameters;
   const displayOutput = output || result;
   const displayStatus = status || (state === 'result' ? 'completed' : 'pending');
 
