@@ -50,7 +50,7 @@ function ChatPageInner() {
   }
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="flex-1 space-y-6 pt-12">
 
       <ChatMessages messages={messages} isLoading={isLoading} />
 

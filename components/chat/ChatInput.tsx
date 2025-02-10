@@ -28,7 +28,7 @@ export function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
       }}
       ref={formRef}
     >
-      <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:rounded-md sm:border sm:px-12">
+      <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:px-24">
         <Textarea
           ref={inputRef}
           tabIndex={0}

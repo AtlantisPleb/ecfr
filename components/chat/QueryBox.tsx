@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -46,8 +46,8 @@ export function QueryBox() {
           onChange={(e) => setQuery(e.target.value)}
           className="flex-1"
         />
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           variant="default"
           disabled={!query.trim()}
         >
