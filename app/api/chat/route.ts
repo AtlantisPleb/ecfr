@@ -79,6 +79,16 @@ Use the most appropriate tool(s) for each query.`
       model: anthropic('claude-3-5-sonnet-20241022'),
       system: systemPrompt,
       tools,
+      onToolCall: async ({ toolCall, toolResult }) => {
+        console.log('Tool call:', toolCall)
+        console.log('Tool result:', toolResult)
+        data.appendMessageAnnotation({
+          type: 'tool-result',
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          result: toolResult
+        })
+      },
       onFinish: () => {
         console.log('Closing data stream')
         data.close()
