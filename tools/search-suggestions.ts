@@ -29,18 +29,41 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
   parameters: params,
   execute: async ({ query, date, title }: Params): Promise<Result> => {
     try {
-      const searchParams = new URLSearchParams({
-        q: query,
-        ...(date && { date }),
-        ...(title && { title })
-      });
+      const searchParams = new URLSearchParams();
+      searchParams.append("query", query);
+      
+      if (date) {
+        searchParams.append("date", date);
+      }
+      
+      if (title) {
+        searchParams.append("title", title);
+      }
+
+      console.log("Making suggestions request:", searchParams.toString());
 
       const response = await fetch(
         `https://www.ecfr.gov/api/search/v1/suggestions?${searchParams.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error(`Search suggestions API returned ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("Search suggestions API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+
+        if (response.status === 400) {
+          return {
+            success: false,
+            error: "Invalid search query. Please check your search terms and try again.",
+            summary: "Search query validation failed",
+            details: `The search suggestions API rejected the query: ${errorText}`
+          };
+        }
+
+        throw new Error(`Search suggestions API returned ${response.status}: ${response.statusText}\n${errorText}`);
       }
 
       const data = await response.json();
@@ -55,6 +78,7 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Search suggestions error:", errorMessage);
       return {
         success: false,
         error: errorMessage,
