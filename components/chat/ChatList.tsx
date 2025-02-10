@@ -110,8 +110,8 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
         {messages.map((message, index) => renderMessage(message, index))}
         {isLoading && (
           <div className="flex w-full items-center gap-2 rounded-lg bg-muted px-4 py-2">
-            <span className="font-semibold">Assistant: </span>
-            <p className="animate-pulse">Thinking...</p>
+            <span className="font-semibold"></span>
+            <p className="animate-pulse text-sm">Thinking...</p>
           </div>
         )}
         <div ref={messagesEndRef} className="h-0" />

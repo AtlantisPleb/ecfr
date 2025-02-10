@@ -1,10 +1,10 @@
 "use client"
 
-import { useEnterSubmit } from "@/lib/hooks/use-enter-submit"
-import { cn } from "@/lib/utils"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { useEnterSubmit } from "@/lib/hooks/use-enter-submit"
+import { cn } from "@/lib/utils"
 
 export interface ChatInputProps {
   onSubmit: (value: string) => void
@@ -28,10 +28,11 @@ export function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
       }}
       ref={formRef}
     >
-      <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:rounded-md sm:border sm:px-12">
+      <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:px-24">
         <Textarea
           ref={inputRef}
           tabIndex={0}
+          autoFocus={true}
           onKeyDown={onKeyDown}
           rows={1}
           value={value}
