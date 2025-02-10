@@ -10,44 +10,29 @@ export default function ChatPage() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get("q")
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
+  const { messages, handleSubmit, isLoading, error } = useChat({
     api: "/api/chat",
+    initialMessages: initialQuery ? [
+      { id: '1', role: 'user', content: initialQuery }
+    ] : [],
     onFinish: (message) => {
       console.log("Chat finished:", message)
-    },
-    onResponse: (response) => {
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()))
-      if (!response.ok) {
-        console.error("Response not ok:", response.status, response.statusText)
-      }
-      return response
     },
     onError: (error) => {
       console.error("Chat error:", error)
     }
   })
 
-  // Handle initial query from URL
+  // Immediately send initial query when component mounts
   useEffect(() => {
-    if (initialQuery && messages.length === 0) {
-      console.log("Submitting initial query:", initialQuery)
-      try {
-        const message = { role: 'user', content: initialQuery }
-        console.log("Submitting message:", message)
-        handleSubmit(undefined as any, { input: initialQuery })
-      } catch (e) {
-        console.error("Error submitting query:", e)
+    const sendInitialQuery = async () => {
+      if (initialQuery && messages.length === 1) {
+        console.log("Auto-sending initial query:", initialQuery)
+        await handleSubmit(undefined as any, { input: initialQuery })
       }
     }
-  }, [initialQuery, messages.length, handleSubmit])
-
-  useEffect(() => {
-    console.log("Messages updated:", messages)
-  }, [messages])
-
-  useEffect(() => {
-    console.log("Loading state:", isLoading)
-  }, [isLoading])
+    sendInitialQuery()
+  }, []) // Empty deps array so it only runs once on mount
 
   if (error) {
     return (
@@ -74,11 +59,7 @@ export default function ChatPage() {
         <ChatInput
           onSubmit={async (value) => {
             console.log("Submitting new message:", value)
-            try {
-              await handleSubmit(undefined as any, { input: value })
-            } catch (e) {
-              console.error("Error submitting message:", e)
-            }
+            await handleSubmit(undefined as any, { input: value })
           }}
           isLoading={isLoading}
         />
