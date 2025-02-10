@@ -1,0 +1,647 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "eCFR API Documentation - Search Service",
+    "version": "1.0.0",
+    "description": "API for accessing Electronic Code of Federal Regulations - Search Service endpoints"
+  },
+  "servers": [
+    {
+      "url": "https://www.ecfr.gov"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Search Service",
+      "description": "Historical search of the eCFR"
+    }
+  ],
+  "paths": {
+    "/api/search/v1/count": {
+      "get": {
+        "summary": "Search result count",
+        "tags": [
+          "Search Service"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "description": "limit to content last modified after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "description": "limit to content last modified on or after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "description": "limit to content last modified before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "description": "limit to content last modified on or before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "description": "Total count of matching results"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/search/v1/summary": {
+      "get": {
+        "summary": "Search summary details",
+        "tags": [
+          "Search Service"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "description": "limit to content last modified after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "description": "limit to content last modified on or after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "description": "limit to content last modified before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "description": "limit to content last modified on or before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "object",
+                      "description": "Summary details of the search results"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/search/v1/counts/daily": {
+      "get": {
+        "summary": "Search result counts by date",
+        "tags": [
+          "Search Service"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "description": "limit to content last modified after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "description": "limit to content last modified on or after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "description": "limit to content last modified before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "description": "limit to content last modified on or before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "daily_counts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/search/v1/counts/titles": {
+      "get": {
+        "summary": "Search result counts by title",
+        "tags": [
+          "Search Service"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "description": "limit to content last modified after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "description": "limit to content last modified on or after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "description": "limit to content last modified before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "description": "limit to content last modified on or before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "title_counts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "integer"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/search/v1/counts/hierarchy": {
+      "get": {
+        "summary": "Search result counts by hierarchy",
+        "tags": [
+          "Search Service"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "description": "limit to content last modified after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "description": "limit to content last modified on or after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "description": "limit to content last modified before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "description": "limit to content last modified on or before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hierarchy_counts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/search/v1/suggestions": {
+      "get": {
+        "summary": "Search suggestions",
+        "tags": [
+          "Search Service"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "description": "limit to content last modified after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "description": "limit to content last modified on or after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "description": "limit to content last modified before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "description": "limit to content last modified on or before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suggestions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "description": "The suggested search term"
+                          },
+                          "score": {
+                            "type": "number",
+                            "format": "float",
+                            "description": "Relevance score of the suggestion"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,496 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "eCFR API Documentation",
+    "version": "1.0.0",
+    "description": "API for accessing Electronic Code of Federal Regulations"
+  },
+  "servers": [
+    {
+      "url": "https://www.ecfr.gov"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Admin Service",
+      "description": "Access eCFR metadata through JSON"
+    },
+    {
+      "name": "Search Service",
+      "description": "Historical search of the eCFR"
+    },
+    {
+      "name": "Versioner Service",
+      "description": "Access CFR content and structure files through JSON and XML"
+    }
+  ],
+  "paths": {
+    "/api/admin/v1/agencies.json": {
+      "get": {
+        "summary": "Agencies",
+        "description": "All top-level agencies in name order with children also in name order",
+        "tags": [
+          "Admin Service"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agencies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "short_name": {
+                            "type": "string"
+                          },
+                          "display_name": {
+                            "type": "string"
+                          },
+                          "sortable_name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "children": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/Agency"
+                            }
+                          },
+                          "cfr_references": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "integer"
+                                },
+                                "chapter": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/v1/corrections.json": {
+      "get": {
+        "summary": "Corrections route returns all eCFR corrections",
+        "description": "The Corrections service can be used to determine all corrections or can be filtered by title, effective date, or correction date.",
+        "tags": [
+          "Admin Service"
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "Restricts results to eCFR corrections that occurred on or before the specified date and that were corrected on or after the specified date. Format: YYYY-MM-DD",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "description": "Restricts results to the given title number: Format: '1', '2', '50', etc",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_corrected_date",
+            "in": "query",
+            "description": "Returns only corrections that were corrected on the given date. Format: YYYY-MM-DD",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ecfr_corrections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Correction"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Title not found"
+          }
+        }
+      }
+    },
+    "/api/admin/v1/corrections/title/{title}.json": {
+      "get": {
+        "summary": "Corrections title route returns all corrections for the supplied title",
+        "description": "The Corrections service can be used to determine all corrections for the given title.",
+        "tags": [
+          "Admin Service"
+        ],
+        "parameters": [
+          {
+            "name": "title",
+            "in": "path",
+            "description": "Title Number: '1', '2', '50', etc",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ecfr_corrections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Correction"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/search/v1/results": {
+      "get": {
+        "summary": "Search results",
+        "tags": [
+          "Search Service"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Search term; searches the headings and the full text",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agency_slugs[]",
+            "in": "query",
+            "description": "limit to content currently associated with these agencies",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "limit to content present on this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_after",
+            "in": "query",
+            "description": "limit to content last modified after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_after",
+            "in": "query",
+            "description": "limit to content last modified on or after this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_before",
+            "in": "query",
+            "description": "limit to content last modified before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "last_modified_on_or_before",
+            "in": "query",
+            "description": "limit to content last modified on or before this date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "number of results per page; max of 1,000",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "page of results; can't paginate beyond 10,000 total results",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "order of results",
+            "schema": {
+              "type": "string",
+              "default": "relevance",
+              "enum": [
+                "citations",
+                "relevance",
+                "hierarchy",
+                "newest_first",
+                "oldest_first",
+                "suggestions"
+              ]
+            }
+          },
+          {
+            "name": "paginate_by",
+            "in": "query",
+            "description": "how results should be paginated",
+            "schema": {
+              "type": "string",
+              "default": "results",
+              "enum": [
+                "date",
+                "results"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "description": "A set of sections and appendices that match the provided query params"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string",
+                          "description": "description of the search results"
+                        },
+                        "current_page": {
+                          "type": "integer",
+                          "description": "current page of results"
+                        },
+                        "total_count": {
+                          "type": "integer",
+                          "description": "total count of matching results across all pages"
+                        },
+                        "total_pages": {
+                          "type": "integer",
+                          "description": "total number of pages in the search results"
+                        },
+                        "max_score": {
+                          "type": "number",
+                          "format": "float",
+                          "description": "the maximum score of any match in the search"
+                        },
+                        "min_date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "the minimum date of all returned results"
+                        },
+                        "max_date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "the maximum date of all returned results"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Agency": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "short_name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "sortable_name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Agency"
+            }
+          },
+          "cfr_references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "integer"
+                },
+                "chapter": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Correction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "cfr_references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cfr_reference": {
+                  "type": "string"
+                },
+                "hierarchy": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "subtitle": {
+                      "type": "string"
+                    },
+                    "part": {
+                      "type": "string"
+                    },
+                    "subpart": {
+                      "type": "string"
+                    },
+                    "section": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "corrective_action": {
+            "type": "string"
+          },
+          "error_corrected": {
+            "type": "string",
+            "format": "date"
+          },
+          "error_occurred": {
+            "type": "string",
+            "format": "date"
+          },
+          "fr_citation": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "display_in_toc": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "integer"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "last_modified": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  }
+}
