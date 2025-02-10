@@ -17,9 +17,10 @@ export default function ChatPage() {
   // Handle initial query from URL
   useEffect(() => {
     if (initialQuery && messages.length === 0) {
-      handleSubmit(new FormEvent("submit") as any, { input: initialQuery })
+      const event = new Event("submit") as any;
+      handleSubmit(event, { input: initialQuery })
     }
-  }, [initialQuery, messages.length])
+  }, [initialQuery, messages.length, handleSubmit])
 
   return (
     <div className="flex-1 space-y-6">
@@ -35,7 +36,8 @@ export default function ChatPage() {
       <div className="fixed inset-x-0 bottom-0 w-full bg-gradient-to-b from-muted/30 from-0% to-muted/30 to-50% pb-4">
         <ChatInput
           onSubmit={async (value) => {
-            await handleSubmit(new FormEvent("submit") as any, { input: value })
+            const event = new Event("submit") as any;
+            await handleSubmit(event, { input: value })
           }}
           isLoading={isLoading}
         />
