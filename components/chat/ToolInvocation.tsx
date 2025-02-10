@@ -6,17 +6,22 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog"
-import { ToolInvocation as BaseToolInvocation } from "@/types/tool-invocation"
 
 interface JSONValue {
   [key: string]: any;
 }
 
-export interface ExtendedToolInvocation extends BaseToolInvocation {
-  tool_name?: string;
+export interface ToolInvocation {
+  toolCallId: string;
+  toolName: string;
+  name?: string;
+  args: JSONValue;
+  parameters?: JSONValue;
   input?: JSONValue;
   output?: JSONValue;
+  result?: JSONValue;
   status?: 'pending' | 'completed' | 'failed';
+  state?: 'partial-call' | 'call' | 'result';
 }
 
 const ensureObject = (value: JSONValue): Record<string, any> => {
@@ -33,7 +38,7 @@ const ensureObject = (value: JSONValue): Record<string, any> => {
   return {};
 };
 
-export function ToolInvocation({ toolInvocation }: { toolInvocation: ExtendedToolInvocation }) {
+export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocation }) {
   const [isFileContentDialogOpen, setIsFileContentDialogOpen] = useState(false);
   const [isInputParamsDialogOpen, setIsInputParamsDialogOpen] = useState(false);
 
@@ -44,18 +49,19 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ExtendedToo
 
   const {
     toolCallId,
-    tool_name,
     toolName,
+    name,
     input,
     args,
+    parameters,
     output,
     result,
     status,
     state
   } = toolInvocation;
 
-  const displayName = tool_name || toolName;
-  const displayInput = input || args;
+  const displayName = toolName || name;
+  const displayInput = input || args || parameters;
   const displayOutput = output || result;
   const displayStatus = status || (state === 'result' ? 'completed' : 'pending');
 
