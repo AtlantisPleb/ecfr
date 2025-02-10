@@ -4,7 +4,7 @@ import { Message } from "ai"
 import { useEffect, useRef } from "react"
 import { Separator } from "@/components/ui/separator"
 import { ChatMessage } from "./ChatMessage"
-import { ToolInvocation } from "./ToolInvocation"
+import { ToolInvocation, ExtendedToolInvocation } from "./ToolInvocation"
 
 export interface ChatListProps {
   messages: Message[]
@@ -42,8 +42,8 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
             <div className="flex-grow">
               {message.toolInvocations?.map((invocation, invIndex) => (
                 <ToolInvocation 
-                  key={`${invocation.name}-${invIndex}`} 
-                  toolInvocation={invocation as any} 
+                  key={`${invocation.toolCallId}-${invIndex}`} 
+                  toolInvocation={invocation as ExtendedToolInvocation} 
                 />
               ))}
             </div>
@@ -54,8 +54,8 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
           <div className="mt-1">
             {message.toolInvocations?.map((invocation, invIndex) => (
               <ToolInvocation 
-                key={`${invocation.name}-${invIndex}`} 
-                toolInvocation={invocation as any} 
+                key={`${invocation.toolCallId}-${invIndex}`} 
+                toolInvocation={invocation as ExtendedToolInvocation} 
               />
             ))}
           </div>
