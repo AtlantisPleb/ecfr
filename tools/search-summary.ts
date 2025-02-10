@@ -80,37 +80,53 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
       }
 
       const data = await response.json();
+      console.log("API Response:", JSON.stringify(data, null, 2));
 
-      // Validate response format
-      if (!data || typeof data.totalResults !== 'number' || !Array.isArray(data.topTerms)) {
-        throw new Error('Search summary API returned invalid response format');
-      }
-
-      const summaryData: SearchSummary = {
-        totalResults: data.totalResults,
-        processingTimeMs: data.processingTimeMs,
-        topTerms: data.topTerms,
-        dateRange: data.dateRange
+      // More flexible validation
+      const summaryData: Partial<SearchSummary> = {
+        totalResults: typeof data.totalResults === 'number' ? data.totalResults : 0,
+        processingTimeMs: typeof data.processingTimeMs === 'number' ? data.processingTimeMs : 0,
+        topTerms: Array.isArray(data.topTerms) ? data.topTerms : [],
+        dateRange: data.dateRange || undefined
       };
       
       // Format the content as a readable string
-      const formattedContent = [
-        `Total Results: ${summaryData.totalResults}`,
-        `Processing Time: ${summaryData.processingTimeMs}ms`,
-        '',
-        'Top Terms:',
-        ...summaryData.topTerms.map(term => `- ${term.term} (${term.count} occurrences)`),
-        '',
-        summaryData.dateRange ? `Date Range: ${summaryData.dateRange.start} to ${summaryData.dateRange.end}` : ''
-      ].filter(Boolean).join('\n');
+      const contentParts = [];
+
+      if (typeof summaryData.totalResults === 'number') {
+        contentParts.push(`Total Results: ${summaryData.totalResults}`);
+      }
+      
+      if (typeof summaryData.processingTimeMs === 'number') {
+        contentParts.push(`Processing Time: ${summaryData.processingTimeMs}ms`);
+      }
+
+      if (Array.isArray(summaryData.topTerms) && summaryData.topTerms.length > 0) {
+        contentParts.push('', 'Top Terms:');
+        summaryData.topTerms.forEach(term => {
+          if (term && typeof term.term === 'string' && typeof term.count === 'number') {
+            contentParts.push(`- ${term.term} (${term.count} occurrences)`);
+          }
+        });
+      }
+
+      if (summaryData.dateRange) {
+        contentParts.push('', `Date Range: ${summaryData.dateRange.start} to ${summaryData.dateRange.end}`);
+      }
+
+      const formattedContent = contentParts.join('\n');
       
       return {
         success: true,
-        content: formattedContent,
-        summary: `Found ${data.totalResults} results in ${data.processingTimeMs}ms`,
+        content: formattedContent || "No summary data available",
+        summary: `Found ${summaryData.totalResults || 0} results${
+          typeof summaryData.processingTimeMs === 'number' ? ` in ${summaryData.processingTimeMs}ms` : ''
+        }`,
         details: `Search summary for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
-        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""} with ${data.topTerms.length} top terms`
+        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}${
+          Array.isArray(summaryData.topTerms) ? ` with ${summaryData.topTerms.length} top terms` : ''
+        }`
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
