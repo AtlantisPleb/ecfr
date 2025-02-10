@@ -12,14 +12,16 @@ interface JSONValue {
 }
 
 export interface ToolInvocation {
-  toolCallId: string;
-  toolName: string;
-  args: JSONValue;
-  state?: 'partial-call' | 'call' | 'result';
+  id?: string;
+  toolCallId?: string;
+  tool_name?: string;
+  toolName?: string;
   input?: JSONValue;
+  args?: JSONValue;
   output?: JSONValue;
   result?: JSONValue;
   status?: 'pending' | 'completed' | 'failed';
+  state?: 'call' | 'result';
 }
 
 const ensureObject = (value: JSONValue): Record<string, any> => {
@@ -39,6 +41,7 @@ const ensureObject = (value: JSONValue): Record<string, any> => {
 export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocation }) {
   const [isFileContentDialogOpen, setIsFileContentDialogOpen] = useState(false);
   const [isInputParamsDialogOpen, setIsInputParamsDialogOpen] = useState(false);
+  const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
 
   if (!toolInvocation || typeof toolInvocation !== 'object') {
     console.error("Invalid toolInvocation prop:", toolInvocation);
@@ -46,7 +49,9 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   }
 
   const {
+    id,
     toolCallId,
+    tool_name,
     toolName,
     input,
     args,
@@ -56,8 +61,9 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     state
   } = toolInvocation;
 
-  const displayName = toolName;
-  const displayInput = input || args;
+  const displayId = id || toolCallId;
+  const displayName = tool_name || toolName;
+  const displayInput = input || args as JSONValue;
   const displayOutput = output || result;
   const displayStatus = status || (state === 'result' ? 'completed' : 'pending');
 
@@ -82,7 +88,8 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   };
 
   const summary = outputObject?.summary || outputObject?.value?.result?.summary || outputObject?.value?.result?.details || "---";
-
+  const details = outputObject?.details || outputObject?.value?.result?.details;
+  const content = outputObject?.content;
   const fileContent = outputObject?.content;
 
   return (
@@ -122,6 +129,44 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
               </pre>
             </DialogContent>
           </Dialog>
+
+          {(content || details) && (
+            <Dialog open={isResultDialogOpen} onOpenChange={setIsResultDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileText className="w-4 h-4 mr-2" />
+                  View Result
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Tool Result</DialogTitle>
+                  <DialogDescription>
+                    View the complete result from this tool invocation
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {content && (
+                    <div>
+                      <h4 className="font-medium mb-2">Content:</h4>
+                      <pre className="text-xs whitespace-pre-wrap break-all bg-secondary p-4 rounded-md">
+                        {content}
+                      </pre>
+                    </div>
+                  )}
+                  {details && (
+                    <div>
+                      <h4 className="font-medium mb-2">Details:</h4>
+                      <pre className="text-xs whitespace-pre-wrap break-all bg-secondary p-4 rounded-md">
+                        {details}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
           {fileContent && (
             <Dialog open={isFileContentDialogOpen} onOpenChange={setIsFileContentDialogOpen}>
               <DialogTrigger asChild>
