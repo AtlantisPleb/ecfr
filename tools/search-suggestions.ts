@@ -11,12 +11,6 @@ const params = z.object({
 
 type Params = z.infer<typeof params>;
 
-type Suggestion = {
-  text: string;
-  score: number;
-  frequency: number;
-};
-
 type Result = {
   success: boolean;
   content: string;
@@ -46,61 +40,32 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
         });
       }
 
-      console.log("Making suggestions request:", searchParams.toString());
-
       const response = await fetch(
         `https://www.ecfr.gov/api/search/v1/suggestions?${searchParams.toString()}`
       );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Search suggestions API error:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-
-        if (response.status === 400) {
-          return {
-            success: false,
-            content: "Invalid search query. Please check your search terms and try again.",
-            summary: "Search query validation failed",
-            details: `The search suggestions API rejected the query: ${errorText}`
-          };
-        }
-
-        throw new Error(`Search suggestions API returned ${response.status}: ${response.statusText}\n${errorText}`);
+        return {
+          success: false,
+          content: errorText,
+          summary: "Search suggestions request failed",
+          details: `API returned ${response.status}: ${response.statusText}`
+        };
       }
 
       const data = await response.json();
-
-      // Validate response format
-      if (!data || !Array.isArray(data.suggestions)) {
-        throw new Error('Search suggestions API returned invalid response format');
-      }
-
-      const suggestions: Suggestion[] = data.suggestions;
-      
-      // Format the content as a readable string
-      const formattedContent = [
-        `Found ${suggestions.length} suggestions:`,
-        '',
-        ...suggestions.map(suggestion => 
-          `- ${suggestion.text} (score: ${suggestion.score.toFixed(2)}, frequency: ${suggestion.frequency})`
-        )
-      ].join('\n');
       
       return {
         success: true,
-        content: formattedContent,
-        summary: `Found ${suggestions.length} search suggestions`,
+        content: JSON.stringify(data, null, 2),
+        summary: "Retrieved search suggestions",
         details: `Search suggestions for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
         }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Search suggestions error:", errorMessage);
       return {
         success: false,
         content: errorMessage,
