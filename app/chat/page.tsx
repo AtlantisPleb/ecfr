@@ -10,10 +10,17 @@ export default function ChatPage() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get("q")
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: "/api/chat",
+    onFinish: (message) => {
+      console.log("Chat finished:", message)
+    },
     onResponse: (response) => {
-      console.log("Got response:", response)
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()))
+      if (!response.ok) {
+        console.error("Response not ok:", response.status, response.statusText)
+      }
+      return response
     },
     onError: (error) => {
       console.error("Chat error:", error)
@@ -24,8 +31,13 @@ export default function ChatPage() {
   useEffect(() => {
     if (initialQuery && messages.length === 0) {
       console.log("Submitting initial query:", initialQuery)
-      const event = new Event("submit") as any;
-      handleSubmit(event, { input: initialQuery })
+      try {
+        const message = { role: 'user', content: initialQuery }
+        console.log("Submitting message:", message)
+        handleSubmit(undefined as any, { input: initialQuery })
+      } catch (e) {
+        console.error("Error submitting query:", e)
+      }
     }
   }, [initialQuery, messages.length, handleSubmit])
 
@@ -36,6 +48,16 @@ export default function ChatPage() {
   useEffect(() => {
     console.log("Loading state:", isLoading)
   }, [isLoading])
+
+  if (error) {
+    return (
+      <div className="flex-1 space-y-6">
+        <div className="p-4 bg-red-50 text-red-500">
+          Error: {error.message}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 space-y-6">
@@ -52,8 +74,11 @@ export default function ChatPage() {
         <ChatInput
           onSubmit={async (value) => {
             console.log("Submitting new message:", value)
-            const event = new Event("submit") as any;
-            await handleSubmit(event, { input: value })
+            try {
+              await handleSubmit(undefined as any, { input: value })
+            } catch (e) {
+              console.error("Error submitting message:", e)
+            }
           }}
           isLoading={isLoading}
         />
