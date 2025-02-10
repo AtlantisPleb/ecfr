@@ -40,34 +40,52 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
 
           {hasToolInvocations && !hasContent && (
             <div className="flex-grow">
-              {message.toolInvocations?.map((invocation, invIndex) => (
-                <ToolInvocation 
-                  key={`${invocation.toolCallId}-${invIndex}`} 
-                  toolInvocation={{
-                    toolCallId: invocation.toolCallId,
-                    toolName: invocation.toolName,
-                    args: invocation.args,
-                    state: invocation.state,
-                  }} 
-                />
-              ))}
+              {message.toolInvocations?.map((invocation: any, invIndex) => {
+                // Extract tool name from function_call or use toolName
+                const toolName = invocation.function_call?.name || invocation.toolName;
+                // Extract args from function_call or use args
+                const args = invocation.function_call?.arguments 
+                  ? JSON.parse(invocation.function_call.arguments)
+                  : invocation.args;
+
+                return (
+                  <ToolInvocation 
+                    key={`${invocation.id || invocation.toolCallId}-${invIndex}`} 
+                    toolInvocation={{
+                      toolCallId: invocation.id || invocation.toolCallId,
+                      toolName,
+                      args,
+                      state: invocation.state,
+                    }} 
+                  />
+                );
+              })}
             </div>
           )}
         </div>
 
         {hasToolInvocations && hasContent && (
           <div className="mt-1">
-            {message.toolInvocations?.map((invocation, invIndex) => (
-              <ToolInvocation 
-                key={`${invocation.toolCallId}-${invIndex}`} 
-                toolInvocation={{
-                  toolCallId: invocation.toolCallId,
-                  toolName: invocation.toolName,
-                  args: invocation.args,
-                  state: invocation.state,
-                }} 
-              />
-            ))}
+            {message.toolInvocations?.map((invocation: any, invIndex) => {
+              // Extract tool name from function_call or use toolName
+              const toolName = invocation.function_call?.name || invocation.toolName;
+              // Extract args from function_call or use args
+              const args = invocation.function_call?.arguments 
+                ? JSON.parse(invocation.function_call.arguments)
+                : invocation.args;
+
+              return (
+                <ToolInvocation 
+                  key={`${invocation.id || invocation.toolCallId}-${invIndex}`} 
+                  toolInvocation={{
+                    toolCallId: invocation.id || invocation.toolCallId,
+                    toolName,
+                    args,
+                    state: invocation.state,
+                  }} 
+                />
+              );
+            })}
           </div>
         )}
 
