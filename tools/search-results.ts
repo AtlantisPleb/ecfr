@@ -37,6 +37,9 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
   description: "Search eCFR content using the provided query",
   parameters: params,
   execute: async ({ query, date, title, agency_slugs }: Params): Promise<Result> => {
+    console.log('========= SEARCH TOOL START =========');
+    console.log('Search parameters:', { query, date, title, agency_slugs });
+
     try {
       const searchParams = new URLSearchParams();
       searchParams.append("query", query);
@@ -55,11 +58,11 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         });
       }
 
-      console.log("Making search request:", searchParams.toString());
+      const url = `https://www.ecfr.gov/api/search/v1/results?${searchParams.toString()}`;
+      console.log("Making search request to:", url);
 
-      const response = await fetch(
-        `https://www.ecfr.gov/api/search/v1/results?${searchParams.toString()}`
-      );
+      const response = await fetch(url);
+      console.log('Response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -70,19 +73,25 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         });
 
         if (response.status === 400) {
-          return {
+          const errorResult = {
             success: false,
             content: errorText,
             summary: "Search query validation failed",
             details: `The search API rejected the query: ${errorText}`
           };
+          console.log('Returning error result:', errorResult);
+          console.log('========= SEARCH TOOL END (ERROR) =========');
+          return errorResult;
         }
 
         throw new Error(`Search API returned ${response.status}: ${response.statusText}\n${errorText}`);
       }
 
       const data = await response.json();
+      console.log('Raw API response:', data);
+
       const results = data.results as SearchResult[];
+      console.log(`Found ${results.length} results`);
       
       // Format the content as a readable string
       const formattedResults = results.map(result => {
@@ -102,23 +111,30 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         details: resultDetails
       };
 
-      console.log('Search tool returning result:', result);
+      console.log('Returning success result:', result);
+      console.log('========= SEARCH TOOL END (SUCCESS) =========');
       
-      return result;
+      return {
+        success: true,
+        content: formattedResults,
+        summary: resultSummary,
+        details: resultDetails
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Search error:", errorMessage);
       
-      const result = {
+      const errorResult = {
         success: false,
         content: errorMessage,
         summary: "Failed to search regulations",
         details: `Error searching eCFR content: ${errorMessage}`
       };
 
-      console.log('Search tool returning error:', result);
+      console.log('Returning error result:', errorResult);
+      console.log('========= SEARCH TOOL END (ERROR) =========');
       
-      return result;
+      return errorResult;
     }
   }
 });
