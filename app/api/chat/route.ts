@@ -1,6 +1,4 @@
-import {
-  convertToCoreMessages, Message, StreamData, streamText
-} from "ai"
+import { convertToCoreMessages, Message, StreamData, streamText } from "ai"
 import { getTools } from "@/tools"
 import { ToolContext } from "@/types"
 import { anthropic } from "@ai-sdk/anthropic"
@@ -79,6 +77,7 @@ Use the most appropriate tool(s) for each query.`
       model: anthropic('claude-3-5-sonnet-20241022'),
       system: systemPrompt,
       tools,
+      // @ts-ignore
       onToolCall: async ({ toolCall, toolResult }) => {
         console.log('Tool call:', toolCall)
         console.log('Tool result:', toolResult)
