@@ -3,8 +3,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-    DialogTrigger
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+  DialogTrigger
 } from "@/components/ui/dialog"
 
 interface JSONValue {
@@ -70,6 +70,8 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   const inputObject = ensureObject(displayInput);
   const outputObject = displayOutput ? ensureObject(displayOutput) : null;
 
+  console.log('Tool invocation output:', outputObject);
+
   const { owner, repo, branch } = inputObject;
 
   const repoInfo = owner && repo && branch
@@ -87,13 +89,16 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     return null;
   };
 
-  const summary = outputObject?.summary || outputObject?.value?.result?.summary || outputObject?.value?.result?.details || "---";
-  const details = outputObject?.details || outputObject?.value?.result?.details;
-  const content = outputObject?.content;
+  // Extract result fields from the output object
+  const resultContent = outputObject?.content || outputObject?.value?.content;
+  const resultSummary = outputObject?.summary || outputObject?.value?.summary;
+  const resultDetails = outputObject?.details || outputObject?.value?.details;
 
-  console.log({ summary, details, content })
-
-  const fileContent = outputObject?.content;
+  console.log('Extracted result fields:', {
+    content: resultContent,
+    summary: resultSummary,
+    details: resultDetails
+  });
 
   return (
     <Card className="text-xs mb-2">
@@ -111,7 +116,7 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
         </div>
       </CardHeader>
       <CardContent>
-        {summary && <p className="mb-2">{summary}</p>}
+        {resultSummary && <p className="mb-2">{resultSummary}</p>}
         <div className="flex space-x-2">
           <Dialog open={isInputParamsDialogOpen} onOpenChange={setIsInputParamsDialogOpen}>
             <DialogTrigger asChild>
@@ -133,7 +138,7 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
             </DialogContent>
           </Dialog>
 
-          {(content || details) && (
+          {(resultContent || resultDetails) && (
             <Dialog open={isResultDialogOpen} onOpenChange={setIsResultDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -149,45 +154,23 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                  {content && (
+                  {resultContent && (
                     <div>
                       <h4 className="font-medium mb-2">Content:</h4>
                       <pre className="text-xs whitespace-pre-wrap break-all bg-secondary p-4 rounded-md">
-                        {content}
+                        {resultContent}
                       </pre>
                     </div>
                   )}
-                  {details && (
+                  {resultDetails && (
                     <div>
                       <h4 className="font-medium mb-2">Details:</h4>
                       <pre className="text-xs whitespace-pre-wrap break-all bg-secondary p-4 rounded-md">
-                        {details}
+                        {resultDetails}
                       </pre>
                     </div>
                   )}
                 </div>
-              </DialogContent>
-            </Dialog>
-          )}
-
-          {fileContent && (
-            <Dialog open={isFileContentDialogOpen} onOpenChange={setIsFileContentDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <FileText className="w-4 h-4 mr-2" />
-                  View File Content
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>File Content</DialogTitle>
-                  <DialogDescription>
-                    View the content of the file returned by this tool
-                  </DialogDescription>
-                </DialogHeader>
-                <pre className="text-xs whitespace-pre-wrap break-all">
-                  {JSON.stringify(fileContent, null, 2)}
-                </pre>
               </DialogContent>
             </Dialog>
           )}
