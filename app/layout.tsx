@@ -32,18 +32,20 @@ export default function RootLayout({
       <body className={inter.className}>
         <div className="flex min-h-screen flex-col">
           <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container flex h-14 items-center justify-between">
-              <Link href="/">
-                <Button variant="ghost" className="font-semibold">
-                  ChatCFR
-                </Button>
-              </Link>
-              <Link href="/agencies">
-                <Button variant="ghost">
-                  Browse Agencies
-                </Button>
-              </Link>
-            </div>
+            <nav className="mx-auto w-full max-w-screen-xl px-6">
+              <div className="flex h-14 items-center justify-between">
+                <Link href="/">
+                  <Button variant="ghost" className="font-semibold">
+                    ChatCFR
+                  </Button>
+                </Link>
+                <Link href="/agencies">
+                  <Button variant="ghost">
+                    Browse Agencies
+                  </Button>
+                </Link>
+              </div>
+            </nav>
           </header>
           <main className="flex-1">
             {children}
