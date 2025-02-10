@@ -117,9 +117,9 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   };
 
   // Extract result fields from the output object
-  const resultContent = outputObject?.content || outputObject?.value?.content;
-  const resultSummary = outputObject?.summary || outputObject?.value?.summary;
-  const resultDetails = outputObject?.details || outputObject?.value?.details;
+  const resultContent = outputObject?.content;
+  const resultSummary = outputObject?.summary;
+  const resultDetails = outputObject?.details;
 
   console.log('Result fields:', {
     resultContent,
