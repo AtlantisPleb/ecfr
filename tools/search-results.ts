@@ -56,12 +56,15 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         });
       }
 
+      console.log("Making search request:", searchParams.toString());
+
       const response = await fetch(
         `https://www.ecfr.gov/api/search/v1?${searchParams.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error(`Search API returned ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Search API returned ${response.status}: ${response.statusText}\n${errorText}`);
       }
 
       const data = await response.json();
@@ -76,6 +79,7 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Search error:", errorMessage);
       return {
         success: false,
         error: errorMessage,
