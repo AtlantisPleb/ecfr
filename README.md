@@ -1,19 +1,31 @@
-# eCFR Analyzer
+# ChatCFR
 
-A web application for analyzing the Electronic Code of Federal Regulations (eCFR). This tool downloads and processes federal regulations from the eCFR API, providing insights into regulatory content, changes over time, and relationships between agencies and their regulations.
+An AI-powered chat interface for the Electronic Code of Federal Regulations (eCFR). Ask questions about federal regulations and get accurate answers backed by the official eCFR API, with direct references to relevant sections and intelligent analysis of regulatory content.
 
 ## Features
 
-- Downloads and processes current eCFR content
-- Analyzes regulations for metrics like:
+### AI Chat Interface
+- Natural language interaction with federal regulations
+- Direct access to all eCFR API endpoints through specialized tools:
+  - Search across all regulations with intelligent summarization
+  - Get complete title ancestry and structure
+  - Access full regulatory content and XML sources
+  - Track corrections and changes over time
+- Smart suggestions and context-aware responses
+- Citations and direct references to source material
+
+### Regulatory Data Analysis
+- Complete coverage of eCFR API services:
+  - Admin Service for corrections and changes
+  - Versioner Service for structure and content
+  - Search Service with advanced filtering
+- Metrics and insights:
   - Word count per agency
-  - Historical changes over time
-  - Cross-references between regulations
+  - Historical changes
+  - Cross-references
   - Agency relationships
-- Interactive web interface for exploring regulations
-- Hierarchical content navigation (titles/chapters/parts/sections)
-- Version history tracking
-- Activity metrics and change analysis
+- Interactive agency browser
+- Hierarchical content navigation
 
 ## Getting Started
 
@@ -58,7 +70,7 @@ The application will be available at http://localhost:3000
 
 ## Data Ingestion
 
-The application includes a powerful ingestion system for downloading and processing eCFR data. The ingestion script supports various flags to control the process:
+The application includes a system for downloading and processing eCFR data to power the chat interface. The ingestion script supports various flags to control the process:
 
 ### Basic Usage
 
