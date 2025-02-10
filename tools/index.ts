@@ -1,6 +1,7 @@
 import { ToolContext } from "@/types"
 import { searchResultsTool } from "./search-results"
 import { listAgenciesTool } from "./list-agencies"
+import { listCorrectionsTool } from "./list-corrections"
 
 export const allTools = {
   search_results: { 
@@ -10,6 +11,10 @@ export const allTools = {
   list_agencies: { 
     tool: listAgenciesTool, 
     description: "Get list of all federal agencies with hierarchy" 
+  },
+  list_corrections: {
+    tool: listCorrectionsTool,
+    description: "Get all eCFR corrections with optional filtering by title, effective date, or correction date"
   }
 } as const;
 
