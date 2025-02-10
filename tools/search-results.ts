@@ -11,21 +11,6 @@ const params = z.object({
 
 type Params = z.infer<typeof params>;
 
-type SearchResult = {
-  title: string;
-  section: string;
-  content: string;
-  hierarchy: {
-    title: string;
-    chapter: string;
-    part: string;
-    subpart?: string;
-    section: string;
-  };
-  url: string;
-  score: number;
-};
-
 type Result = {
   success: boolean;
   content: string;
@@ -37,9 +22,6 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
   description: "Search eCFR content using the provided query",
   parameters: params,
   execute: async ({ query, date, title, agency_slugs }: Params): Promise<Result> => {
-    console.log('========= SEARCH TOOL START =========');
-    console.log('Search parameters:', { query, date, title, agency_slugs });
-
     try {
       const searchParams = new URLSearchParams();
       searchParams.append("query", query);
@@ -58,75 +40,38 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         });
       }
 
-      const url = `https://www.ecfr.gov/api/search/v1/results?${searchParams.toString()}`;
-      console.log("Making search request to:", url);
-
-      const response = await fetch(url);
-      console.log('Response status:', response.status);
+      const response = await fetch(
+        `https://www.ecfr.gov/api/search/v1/results?${searchParams.toString()}`
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Search API error:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-
-        if (response.status === 400) {
-          const result: Result = {
-            success: false,
-            content: errorText,
-            summary: "Search query validation failed",
-            details: `The search API rejected the query: ${errorText}`
-          };
-          console.log('Returning error result:', result);
-          console.log('========= SEARCH TOOL END (ERROR) =========');
-          return result;
-        }
-
-        throw new Error(`Search API returned ${response.status}: ${response.statusText}\n${errorText}`);
+        return {
+          success: false,
+          content: errorText,
+          summary: "Search request failed",
+          details: `API returned ${response.status}: ${response.statusText}`
+        };
       }
 
       const data = await response.json();
-      console.log('Raw API response:', data);
-
-      const results = data.results as SearchResult[];
-      console.log(`Found ${results.length} results`);
       
-      // Format the content as a readable string
-      const formattedResults = results.map(result => {
-        const { hierarchy, section, content, url } = result;
-        return `${hierarchy.title} > ${hierarchy.chapter} > ${hierarchy.part} ${hierarchy.subpart ? `> ${hierarchy.subpart}` : ''} > ${section}\n${content}\nURL: ${url}\n`;
-      }).join('\n---\n\n');
-
-      const result: Result = {
+      return {
         success: true,
-        content: formattedResults,
-        summary: `Found ${results.length} matching regulations`,
-        details: `Search results for query "${query}"${date ? ` as of ${date}` : ""}${
+        content: JSON.stringify(data, null, 2),
+        summary: "Retrieved search results",
+        details: `Search results for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
         }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
       };
-
-      console.log('Returning success result:', result);
-      console.log('========= SEARCH TOOL END (SUCCESS) =========');
-      
-      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Search error:", errorMessage);
-      
-      const result: Result = {
+      return {
         success: false,
         content: errorMessage,
         summary: "Failed to search regulations",
         details: `Error searching eCFR content: ${errorMessage}`
       };
-
-      console.log('Returning error result:', result);
-      console.log('========= SEARCH TOOL END (ERROR) =========');
-      
-      return result;
     }
   }
 });
