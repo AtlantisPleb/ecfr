@@ -12,8 +12,8 @@ export default function Home() {
 
   const handleSubmit = () => {
     if (query.trim()) {
-      // TODO: Implement actual submission
-      console.log('Submitting:', query)
+      const encodedQuery = encodeURIComponent(query.trim())
+      router.push(`/chat?q=${encodedQuery}`)
     }
   }
 
