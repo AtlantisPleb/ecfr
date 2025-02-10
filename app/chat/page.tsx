@@ -2,13 +2,14 @@
 
 import { useChat } from "ai/react"
 import { useSearchParams } from "next/navigation"
-import { Suspense, useEffect } from "react"
+import { Suspense, useEffect, useRef } from "react"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessages } from "@/components/chat/ChatMessages"
 
 function ChatPageInner() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get("q")
+  const hasInitialized = useRef(false)
 
   const { messages, append, isLoading, error } = useChat({
     api: "/api/chat",
@@ -25,7 +26,9 @@ function ChatPageInner() {
   // Send initial query when component mounts
   useEffect(() => {
     const sendInitialQuery = async () => {
-      if (initialQuery) {
+      // Only send if we have a query and haven't initialized yet
+      if (initialQuery && !hasInitialized.current) {
+        hasInitialized.current = true
         console.log("Sending initial query:", initialQuery)
         await append({
           role: 'user',
@@ -34,7 +37,7 @@ function ChatPageInner() {
       }
     }
     sendInitialQuery()
-  }, [initialQuery]) // Only run when initialQuery changes
+  }, [initialQuery, append]) // Include append in dependencies
 
   if (error) {
     return (
