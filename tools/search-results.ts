@@ -28,8 +28,7 @@ type SearchResult = {
 
 type Result = {
   success: boolean;
-  results?: SearchResult[];
-  error?: string;
+  content: string;
   summary: string;
   details: string;
 };
@@ -73,7 +72,7 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         if (response.status === 400) {
           return {
             success: false,
-            error: "Invalid search query. Please check your search terms and try again.",
+            content: errorText,
             summary: "Search query validation failed",
             details: `The search API rejected the query: ${errorText}`
           };
@@ -83,11 +82,18 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
       }
 
       const data = await response.json();
+      const results = data.results as SearchResult[];
       
+      // Format the content as a readable string
+      const formattedResults = results.map(result => {
+        const { hierarchy, section, content, url } = result;
+        return `${hierarchy.title} > ${hierarchy.chapter} > ${hierarchy.part} ${hierarchy.subpart ? `> ${hierarchy.subpart}` : ''} > ${section}\n${content}\nURL: ${url}\n`;
+      }).join('\n---\n\n');
+
       return {
         success: true,
-        results: data.results,
-        summary: `Found ${data.results.length} matching regulations`,
+        content: formattedResults,
+        summary: `Found ${results.length} matching regulations`,
         details: `Search results for query "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
         }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
@@ -97,7 +103,7 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
       console.error("Search error:", errorMessage);
       return {
         success: false,
-        error: errorMessage,
+        content: errorMessage,
         summary: "Failed to search regulations",
         details: `Error searching eCFR content: ${errorMessage}`
       };
