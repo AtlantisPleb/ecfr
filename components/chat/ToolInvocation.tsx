@@ -14,14 +14,12 @@ interface JSONValue {
 export interface ToolInvocation {
   toolCallId: string;
   toolName: string;
-  name?: string;
   args: JSONValue;
-  parameters?: JSONValue;
+  state?: 'partial-call' | 'call' | 'result';
   input?: JSONValue;
   output?: JSONValue;
   result?: JSONValue;
   status?: 'pending' | 'completed' | 'failed';
-  state?: 'partial-call' | 'call' | 'result';
 }
 
 const ensureObject = (value: JSONValue): Record<string, any> => {
@@ -50,18 +48,16 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   const {
     toolCallId,
     toolName,
-    name,
     input,
     args,
-    parameters,
     output,
     result,
     status,
     state
   } = toolInvocation;
 
-  const displayName = toolName || name;
-  const displayInput = input || args || parameters;
+  const displayName = toolName;
+  const displayInput = input || args;
   const displayOutput = output || result;
   const displayStatus = status || (state === 'result' ? 'completed' : 'pending');
 
