@@ -25,10 +25,12 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
   const renderMessage = (message: Message, index: number) => {
     if (!message) return null;
 
+    console.log('message:', message)
+
     const isAssistantMessage = message.role === 'assistant';
     const hasToolInvocations = isAssistantMessage && message.toolInvocations && message.toolInvocations.length > 0;
     const hasContent = message.content && message.content.trim() !== '';
-    
+
     if (!hasContent && !hasToolInvocations) return null;
 
     return (
@@ -42,21 +44,22 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
             <div className="flex-grow">
               {message.toolInvocations?.map((invocation: any, invIndex) => {
                 // Extract tool name from function_call or use toolName
+                console.log('invocation', invocation)
                 const toolName = invocation.function_call?.name || invocation.toolName;
                 // Extract args from function_call or use args
-                const args = invocation.function_call?.arguments 
+                const args = invocation.function_call?.arguments
                   ? JSON.parse(invocation.function_call.arguments)
                   : invocation.args;
 
                 return (
-                  <ToolInvocation 
-                    key={`${invocation.id || invocation.toolCallId}-${invIndex}`} 
+                  <ToolInvocation
+                    key={`${invocation.id || invocation.toolCallId}-${invIndex}`}
                     toolInvocation={{
                       toolCallId: invocation.id || invocation.toolCallId,
                       toolName,
                       args,
                       state: invocation.state,
-                    }} 
+                    }}
                   />
                 );
               })}
@@ -70,19 +73,19 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
               // Extract tool name from function_call or use toolName
               const toolName = invocation.function_call?.name || invocation.toolName;
               // Extract args from function_call or use args
-              const args = invocation.function_call?.arguments 
+              const args = invocation.function_call?.arguments
                 ? JSON.parse(invocation.function_call.arguments)
                 : invocation.args;
 
               return (
-                <ToolInvocation 
-                  key={`${invocation.id || invocation.toolCallId}-${invIndex}`} 
+                <ToolInvocation
+                  key={`${invocation.id || invocation.toolCallId}-${invIndex}`}
                   toolInvocation={{
                     toolCallId: invocation.id || invocation.toolCallId,
                     toolName,
                     args,
                     state: invocation.state,
-                  }} 
+                  }}
                 />
               );
             })}

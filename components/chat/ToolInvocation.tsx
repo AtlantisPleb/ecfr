@@ -3,8 +3,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-  DialogTrigger
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+    DialogTrigger
 } from "@/components/ui/dialog"
 
 interface JSONValue {
@@ -39,8 +39,8 @@ const ensureObject = (value: JSONValue): Record<string, any> => {
 };
 
 export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocation }) {
-  console.log('========= TOOL INVOCATION START =========');
-  console.log('Raw toolInvocation:', toolInvocation);
+  // console.log('========= TOOL INVOCATION START =========');
+  // console.log('Raw toolInvocation:', toolInvocation);
 
   const [isFileContentDialogOpen, setIsFileContentDialogOpen] = useState(false);
   const [isInputParamsDialogOpen, setIsInputParamsDialogOpen] = useState(false);
@@ -64,18 +64,18 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     state
   } = toolInvocation;
 
-  console.log('Destructured values:', {
-    id,
-    toolCallId,
-    tool_name,
-    toolName,
-    input,
-    args,
-    output,
-    result,
-    status,
-    state
-  });
+  // console.log('Destructured values:', {
+  //   id,
+  //   toolCallId,
+  //   tool_name,
+  //   toolName,
+  //   input,
+  //   args,
+  //   output,
+  //   result,
+  //   status,
+  //   state
+  // });
 
   const displayId = id || toolCallId;
   const displayName = tool_name || toolName;
@@ -83,19 +83,19 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
   const displayOutput = output || result;
   const displayStatus = status || (state === 'result' ? 'completed' : 'pending');
 
-  console.log('Display values:', {
-    displayId,
-    displayName,
-    displayInput,
-    displayOutput,
-    displayStatus
-  });
+  // console.log('Display values:', {
+  //   displayId,
+  //   displayName,
+  //   displayInput,
+  //   displayOutput,
+  //   displayStatus
+  // });
 
   const inputObject = ensureObject(displayInput);
-  console.log('Input object:', inputObject);
+  // console.log('Input object:', inputObject);
 
   const outputObject = displayOutput ? ensureObject(displayOutput) : null;
-  console.log('Output object:', outputObject);
+  // console.log('Output object:', outputObject);
 
   const { owner, repo, branch } = inputObject;
 
@@ -103,7 +103,7 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     ? `${owner}/${repo} (${branch})`
     : null;
 
-  console.log('Repo info:', repoInfo);
+  // console.log('Repo info:', repoInfo);
 
   const renderStateIcon = () => {
     if (displayStatus === 'pending') {
@@ -116,20 +116,22 @@ export function ToolInvocation({ toolInvocation }: { toolInvocation: ToolInvocat
     return null;
   };
 
+  // console.log("toolInvocation:", toolInvocation)
+
   // Extract result fields from the output object
   const resultContent = result?.content || outputObject?.content;
   const resultSummary = result?.summary || outputObject?.summary;
   const resultDetails = result?.details || outputObject?.details;
 
-  console.log('Result fields:', {
-    resultContent,
-    resultSummary,
-    resultDetails,
-    rawOutput: outputObject,
-    rawResult: result
-  });
+  // console.log('Result fields:', {
+  //   resultContent,
+  //   resultSummary,
+  //   resultDetails,
+  //   rawOutput: outputObject,
+  //   rawResult: result
+  // });
 
-  console.log('========= TOOL INVOCATION END =========');
+  // console.log('========= TOOL INVOCATION END =========');
 
   return (
     <Card className="text-xs mb-2">
