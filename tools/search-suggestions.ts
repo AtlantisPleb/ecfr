@@ -4,8 +4,9 @@ import { ToolContext } from "@/types"
 
 const params = z.object({
   query: z.string().describe("The partial search query to get suggestions for"),
-  date: z.string().optional().describe("Optional date for historical suggestions"),
-  title: z.string().optional().describe("Optional title number to get suggestions from")
+  date: z.string().optional().describe("Optional date for historical suggestions (YYYY-MM-DD)"),
+  title: z.string().optional().describe("Optional title number to get suggestions from"),
+  agency_slugs: z.array(z.string()).optional().describe("Optional array of agency slugs to filter by")
 });
 
 type Params = z.infer<typeof params>;
@@ -27,7 +28,7 @@ type Result = {
 export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof params, Result> => tool({
   description: "Get search term suggestions based on partial query",
   parameters: params,
-  execute: async ({ query, date, title }: Params): Promise<Result> => {
+  execute: async ({ query, date, title, agency_slugs }: Params): Promise<Result> => {
     try {
       const searchParams = new URLSearchParams();
       searchParams.append("query", query);
@@ -38,6 +39,12 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
       
       if (title) {
         searchParams.append("title", title);
+      }
+
+      if (agency_slugs && agency_slugs.length > 0) {
+        agency_slugs.forEach(slug => {
+          searchParams.append("agency_slugs[]", slug);
+        });
       }
 
       console.log("Making suggestions request:", searchParams.toString());
@@ -67,6 +74,11 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
       }
 
       const data = await response.json();
+
+      // Validate response format
+      if (!data || !Array.isArray(data.suggestions)) {
+        throw new Error('Search suggestions API returned invalid response format');
+      }
       
       return {
         success: true,
@@ -74,7 +86,7 @@ export const searchSuggestionsTool = (context: ToolContext): CoreTool<typeof par
         summary: `Found ${data.suggestions.length} search suggestions`,
         details: `Search suggestions for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
-        }`
+        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
