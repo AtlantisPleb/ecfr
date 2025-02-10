@@ -90,23 +90,35 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         return `${hierarchy.title} > ${hierarchy.chapter} > ${hierarchy.part} ${hierarchy.subpart ? `> ${hierarchy.subpart}` : ''} > ${section}\n${content}\nURL: ${url}\n`;
       }).join('\n---\n\n');
 
-      return {
+      const resultSummary = `Found ${results.length} matching regulations`;
+      const resultDetails = `Search results for query "${query}"${date ? ` as of ${date}` : ""}${
+        title ? ` in Title ${title}` : ""
+      }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`;
+
+      const result = {
         success: true,
         content: formattedResults,
-        summary: `Found ${results.length} matching regulations`,
-        details: `Search results for query "${query}"${date ? ` as of ${date}` : ""}${
-          title ? ` in Title ${title}` : ""
-        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
+        summary: resultSummary,
+        details: resultDetails
       };
+
+      console.log('Search tool returning result:', result);
+      
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Search error:", errorMessage);
-      return {
+      
+      const result = {
         success: false,
         content: errorMessage,
         summary: "Failed to search regulations",
         details: `Error searching eCFR content: ${errorMessage}`
       };
+
+      console.log('Search tool returning error:', result);
+      
+      return result;
     }
   }
 });
