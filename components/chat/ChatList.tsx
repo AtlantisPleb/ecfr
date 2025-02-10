@@ -41,7 +41,10 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
           {hasToolInvocations && !hasContent && (
             <div className="flex-grow">
               {message.toolInvocations?.map((invocation, invIndex) => (
-                <ToolInvocation key={`${invocation.id}-${invIndex}`} toolInvocation={invocation} />
+                <ToolInvocation 
+                  key={`${invocation.name}-${invIndex}`} 
+                  toolInvocation={invocation as any} 
+                />
               ))}
             </div>
           )}
@@ -50,7 +53,10 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
         {hasToolInvocations && hasContent && (
           <div className="mt-1">
             {message.toolInvocations?.map((invocation, invIndex) => (
-              <ToolInvocation key={`${invocation.id}-${invIndex}`} toolInvocation={invocation} />
+              <ToolInvocation 
+                key={`${invocation.name}-${invIndex}`} 
+                toolInvocation={invocation as any} 
+              />
             ))}
           </div>
         )}
