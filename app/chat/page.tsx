@@ -10,11 +10,8 @@ export default function ChatPage() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get("q")
 
-  const { messages, handleSubmit, isLoading, error } = useChat({
+  const { messages, append, isLoading, error } = useChat({
     api: "/api/chat",
-    initialMessages: initialQuery ? [
-      { id: '1', role: 'user', content: initialQuery }
-    ] : [],
     onFinish: (message) => {
       console.log("Chat finished:", message)
     },
@@ -23,16 +20,19 @@ export default function ChatPage() {
     }
   })
 
-  // Immediately send initial query when component mounts
+  // Send initial query when component mounts
   useEffect(() => {
     const sendInitialQuery = async () => {
-      if (initialQuery && messages.length === 1) {
-        console.log("Auto-sending initial query:", initialQuery)
-        await handleSubmit(undefined as any, { input: initialQuery })
+      if (initialQuery) {
+        console.log("Sending initial query:", initialQuery)
+        await append({
+          role: 'user',
+          content: initialQuery,
+        })
       }
     }
     sendInitialQuery()
-  }, []) // Empty deps array so it only runs once on mount
+  }, [initialQuery]) // Only run when initialQuery changes
 
   if (error) {
     return (
@@ -59,7 +59,10 @@ export default function ChatPage() {
         <ChatInput
           onSubmit={async (value) => {
             console.log("Submitting new message:", value)
-            await handleSubmit(undefined as any, { input: value })
+            await append({
+              role: 'user',
+              content: value,
+            })
           }}
           isLoading={isLoading}
         />
