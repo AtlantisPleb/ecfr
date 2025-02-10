@@ -4,8 +4,9 @@ import { ToolContext } from "@/types"
 
 const params = z.object({
   query: z.string().describe("The search query to find relevant regulations"),
-  date: z.string().optional().describe("Optional date for historical search"),
-  title: z.string().optional().describe("Optional title number to search within")
+  date: z.string().optional().describe("Optional date for historical search (YYYY-MM-DD)"),
+  title: z.string().optional().describe("Optional title number to search within"),
+  agency_slugs: z.array(z.string()).optional().describe("Optional array of agency slugs to filter by")
 });
 
 type Params = z.infer<typeof params>;
@@ -34,7 +35,7 @@ type Result = {
 export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params, Result> => tool({
   description: "Get summary details of search results including top terms and date ranges",
   parameters: params,
-  execute: async ({ query, date, title }: Params): Promise<Result> => {
+  execute: async ({ query, date, title, agency_slugs }: Params): Promise<Result> => {
     try {
       const searchParams = new URLSearchParams();
       searchParams.append("query", query);
@@ -45,6 +46,12 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
       
       if (title) {
         searchParams.append("title", title);
+      }
+
+      if (agency_slugs && agency_slugs.length > 0) {
+        agency_slugs.forEach(slug => {
+          searchParams.append("agency_slugs[]", slug);
+        });
       }
 
       console.log("Making summary request:", searchParams.toString());
@@ -74,14 +81,24 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
       }
 
       const data = await response.json();
+
+      // Validate response format
+      if (!data || typeof data.totalResults !== 'number' || !Array.isArray(data.topTerms)) {
+        throw new Error('Search summary API returned invalid response format');
+      }
       
       return {
         success: true,
-        summary: data,
+        summary: {
+          totalResults: data.totalResults,
+          processingTimeMs: data.processingTimeMs,
+          topTerms: data.topTerms,
+          dateRange: data.dateRange
+        },
         summary_text: `Found ${data.totalResults} results in ${data.processingTimeMs}ms`,
         details: `Search summary for "${query}"${date ? ` as of ${date}` : ""}${
           title ? ` in Title ${title}` : ""
-        } with ${data.topTerms.length} top terms`
+        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""} with ${data.topTerms.length} top terms`
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
