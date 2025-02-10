@@ -73,15 +73,15 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         });
 
         if (response.status === 400) {
-          const errorResult = {
+          const result: Result = {
             success: false,
             content: errorText,
             summary: "Search query validation failed",
             details: `The search API rejected the query: ${errorText}`
           };
-          console.log('Returning error result:', errorResult);
+          console.log('Returning error result:', result);
           console.log('========= SEARCH TOOL END (ERROR) =========');
-          return errorResult;
+          return result;
         }
 
         throw new Error(`Search API returned ${response.status}: ${response.statusText}\n${errorText}`);
@@ -99,42 +99,34 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
         return `${hierarchy.title} > ${hierarchy.chapter} > ${hierarchy.part} ${hierarchy.subpart ? `> ${hierarchy.subpart}` : ''} > ${section}\n${content}\nURL: ${url}\n`;
       }).join('\n---\n\n');
 
-      const resultSummary = `Found ${results.length} matching regulations`;
-      const resultDetails = `Search results for query "${query}"${date ? ` as of ${date}` : ""}${
-        title ? ` in Title ${title}` : ""
-      }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`;
-
-      const result = {
+      const result: Result = {
         success: true,
         content: formattedResults,
-        summary: resultSummary,
-        details: resultDetails
+        summary: `Found ${results.length} matching regulations`,
+        details: `Search results for query "${query}"${date ? ` as of ${date}` : ""}${
+          title ? ` in Title ${title}` : ""
+        }${agency_slugs?.length ? ` filtered by agencies: ${agency_slugs.join(", ")}` : ""}`
       };
 
       console.log('Returning success result:', result);
       console.log('========= SEARCH TOOL END (SUCCESS) =========');
       
-      return {
-        success: true,
-        content: formattedResults,
-        summary: resultSummary,
-        details: resultDetails
-      };
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Search error:", errorMessage);
       
-      const errorResult = {
+      const result: Result = {
         success: false,
         content: errorMessage,
         summary: "Failed to search regulations",
         details: `Error searching eCFR content: ${errorMessage}`
       };
 
-      console.log('Returning error result:', errorResult);
+      console.log('Returning error result:', result);
       console.log('========= SEARCH TOOL END (ERROR) =========');
       
-      return errorResult;
+      return result;
     }
   }
 });
