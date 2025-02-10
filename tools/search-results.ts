@@ -59,11 +59,26 @@ export const searchResultsTool = (context: ToolContext): CoreTool<typeof params,
       console.log("Making search request:", searchParams.toString());
 
       const response = await fetch(
-        `https://www.ecfr.gov/api/search/v1?${searchParams.toString()}`
+        `https://www.ecfr.gov/api/search/v1/results?${searchParams.toString()}`
       );
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("Search API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+
+        if (response.status === 400) {
+          return {
+            success: false,
+            error: "Invalid search query. Please check your search terms and try again.",
+            summary: "Search query validation failed",
+            details: `The search API rejected the query: ${errorText}`
+          };
+        }
+
         throw new Error(`Search API returned ${response.status}: ${response.statusText}\n${errorText}`);
       }
 
