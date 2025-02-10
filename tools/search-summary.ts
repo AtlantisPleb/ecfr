@@ -36,18 +36,41 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
   parameters: params,
   execute: async ({ query, date, title }: Params): Promise<Result> => {
     try {
-      const searchParams = new URLSearchParams({
-        q: query,
-        ...(date && { date }),
-        ...(title && { title })
-      });
+      const searchParams = new URLSearchParams();
+      searchParams.append("query", query);
+      
+      if (date) {
+        searchParams.append("date", date);
+      }
+      
+      if (title) {
+        searchParams.append("title", title);
+      }
+
+      console.log("Making summary request:", searchParams.toString());
 
       const response = await fetch(
         `https://www.ecfr.gov/api/search/v1/summary?${searchParams.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error(`Search summary API returned ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("Search summary API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+
+        if (response.status === 400) {
+          return {
+            success: false,
+            error: "Invalid search query. Please check your search terms and try again.",
+            summary_text: "Search query validation failed",
+            details: `The search summary API rejected the query: ${errorText}`
+          };
+        }
+
+        throw new Error(`Search summary API returned ${response.status}: ${response.statusText}\n${errorText}`);
       }
 
       const data = await response.json();
@@ -62,6 +85,7 @@ export const searchSummaryTool = (context: ToolContext): CoreTool<typeof params,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Search summary error:", errorMessage);
       return {
         success: false,
         error: errorMessage,
